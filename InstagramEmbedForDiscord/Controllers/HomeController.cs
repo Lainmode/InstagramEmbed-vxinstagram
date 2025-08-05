@@ -50,7 +50,7 @@ namespace InstagramEmbedForDiscord.Controllers
 
                 using (HttpClient client = new HttpClient())
                 {
-                    var snapSaveResponse = await client.GetAsync("http://localhost:3100/igdl?url=" + link);
+                    var snapSaveResponse = await client.GetAsync("http://localhost:3100/igdl?url=" + link + "/");
                     var snapSaveResponseString = await snapSaveResponse.Content.ReadAsStringAsync();
                     var instagramResponse = JsonConvert.DeserializeObject<InstagramResponse>(snapSaveResponseString)!;
 
