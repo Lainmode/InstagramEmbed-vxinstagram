@@ -50,26 +50,34 @@ namespace InstagramEmbedForDiscord.Controllers
 
                 using (HttpClient client = new HttpClient())
                 {
-                    var snapSaveResponse = await client.GetAsync("http://localhost:3100/igdl?url=" + link + "/");
+                    var snapSaveResponse = await client.GetAsync("http://localhost:3200/igdl?url=" + link + "/");
                     var snapSaveResponseString = await snapSaveResponse.Content.ReadAsStringAsync();
                     var instagramResponse = JsonConvert.DeserializeObject<InstagramResponse>(snapSaveResponseString)!;
 
-                    contentUrl=instagramResponse.url.data.FirstOrDefault()?.url ?? string.Empty;
-                    thumbnailUrl=instagramResponse.url.data.FirstOrDefault()?.thumbnail ?? string.Empty;
+                    var media = instagramResponse.url?.data?.media?.FirstOrDefault();
+                    if (media == null)
+                        return BadRequest("No media found.");
+
+                    contentUrl = media.url;
+                    thumbnailUrl = media.thumbnail;
 
                     var contentDispositionHeadRequest = new HttpRequestMessage(HttpMethod.Get, contentUrl);
                     var contentDispositionHeadResponse = await client.SendAsync(contentDispositionHeadRequest);
-                    
+
                     var contentDisposition = contentDispositionHeadResponse.Content.Headers.ContentDisposition;
-                    bool isPhoto = contentDisposition != null && contentDisposition.FileName != null && !contentDisposition.FileName.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase);
+                    bool isPhoto = media.type == "image" ||
+                                   (contentDisposition != null &&
+                                   contentDisposition.FileName != null &&
+                                   !contentDisposition.FileName.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase));
 
                     if (isPhoto)
                     {
                         var imageBytes = await client.GetByteArrayAsync(contentUrl);
                         return File(imageBytes, "image/jpeg");
                     }
-                
+
                 }
+
 
                 string[] data = { contentUrl, thumbnailUrl, link };
                 ViewBag.IsPhoto = false;
@@ -90,23 +98,27 @@ namespace InstagramEmbedForDiscord.Controllers
         
     }
 
+    public class InstagramMedia
+    {
+        public string url { get; set; } = string.Empty;
+        public string thumbnail { get; set; } = string.Empty;
+        public string type { get; set; } = string.Empty;
+    }
+
+    public class InstagramData
+    {
+        public List<InstagramMedia> media { get; set; } = new();
+    }
+
+    public class InstagramUrl
+    {
+        public bool success { get; set; }
+        public InstagramData data { get; set; } = new();
+    }
 
     public class InstagramResponse
     {
-        public UrlData url { get; set; }
-    }
-
-    public class UrlData
-    {
-        public string developer { get; set; }
-        public bool status { get; set; }
-        public List<InstagramMedia> data { get; set; }
-    }
-
-    public class InstagramMedia
-    {
-        public string thumbnail { get; set; }
-        public string url { get; set; }
+        public InstagramUrl url { get; set; } = new();
     }
 
 }
