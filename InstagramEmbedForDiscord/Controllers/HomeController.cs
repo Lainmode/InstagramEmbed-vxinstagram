@@ -50,7 +50,7 @@ namespace InstagramEmbedForDiscord.Controllers
 
                 using (HttpClient client = new HttpClient())
                 {
-                    var snapSaveResponse = await client.GetAsync("http://localhost:3200/igdl?url=" + link + "/");
+                    var snapSaveResponse = await client.GetAsync("http://alsauce.com:3200/igdl?url=" + link + "/");
                     var snapSaveResponseString = await snapSaveResponse.Content.ReadAsStringAsync();
                     var instagramResponse = JsonConvert.DeserializeObject<InstagramResponse>(snapSaveResponseString)!;
 
@@ -64,11 +64,12 @@ namespace InstagramEmbedForDiscord.Controllers
                     var contentDispositionHeadRequest = new HttpRequestMessage(HttpMethod.Get, contentUrl);
                     var contentDispositionHeadResponse = await client.SendAsync(contentDispositionHeadRequest);
 
-                    var contentDisposition = contentDispositionHeadResponse.Content.Headers.ContentDisposition;
-                    bool isPhoto = media.type == "image" ||
-                                   (contentDisposition != null &&
-                                   contentDisposition.FileName != null &&
-                                   !contentDisposition.FileName.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase));
+                    //var contentDisposition = contentDispositionHeadResponse.Content.Headers.ContentDisposition;
+                    bool isPhoto = media.type == "image";
+                                   //||
+                                   //(contentDisposition != null &&
+                                   //contentDisposition.FileName != null &&
+                                   //!contentDisposition.FileName.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase));
 
                     if (isPhoto)
                     {
