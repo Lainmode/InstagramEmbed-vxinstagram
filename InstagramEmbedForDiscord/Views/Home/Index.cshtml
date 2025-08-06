@@ -1,9 +1,15 @@
-﻿@model string[]
+﻿@using InstagramEmbedForDiscord.Controllers;
+@model string[]
 @{
     Layout = null;
     string contentUrl = Model[0];
     string thumbnailUrl = Model[1];
     string url = Model[2];
+    bool isPhoto = ViewBag.IsPhoto;
+    // int width = ViewBag.Width ?? 0;
+    // int height = ViewBag.Height ?? 0;
+
+    List<InstagramMedia> files = ViewBag.Files ?? new List<InstagramMedia>();
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -11,29 +17,48 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta property="og:type" content="video.other" />
-    <meta property="og:video" content="@contentUrl" />
-    <meta property="og:video:secure_url" content="@contentUrl" />
-    <meta property="og:video:type" content="video/mp4" />
-    <meta name="twitter:player" content="@url" />
+    @if(isPhoto)
+    {
+        <meta property="og:image" content="@contentUrl" />
+        <meta property="og:type" content="website" />
+    }
+    else
+    {
+        <meta property="og:type" content="video.other" />
+        <meta property="og:video" content="@contentUrl" />
+        <meta property="og:video:secure_url" content="@contentUrl" />
+        <meta property="og:video:type" content="video/mp4" />
+        <meta name="twitter:player" content="@url" />
+    }
+
     
     <title>InstagramEmbed</title>
 </head>
-<body class=" d-flex-column p-4 bg-dark text-light align-items-center">
+<body class=" d-flex-column p-4 bg-dark text-light align-items-center justify-content-center">
     <a target="_blank" href="https://www.buymeacoffee.com/alsauce"><img class="mb-2" style="height:2.5rem" src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=alsauce&button_colour=954b89&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00" /></a>
-<div class="d-flex flex-column justify-content-center">
-    <div class="col-lg-3 col-md-6 col-sm-8 col-11 mx-auto card card-body my-auto shadow px-0 py-0 bg-dark text-light" style="height:fit-content;flex:0;border-radius:1rem">
-        <div class="media-container w-100">
-            <video class="post-media w-100" style="aspect-ratio:5/6; object-fit:cover;  border-top-left-radius: 1rem; border-top-right-radius:1rem;" controls>
-                <source src="@contentUrl}" type="video/mp4">
+<div class="row g-5 align-items-center w-100 justify-content-center mx-auto">
+        @foreach (var item in files)
+        {
+            <div class="col-12 col-md-6 col-lg-4">
+            <div class="card-body my-auto shadow px-0 py-0 bg-dark text-light border border-secondary" style="height:fit-content;flex:0;border-radius:1rem">
+                <div class="media-container w-100">
+                    @if (item.type == "video")
+                    {
+                        <video class="post-media w-100" style="aspect-ratio:5/6; object-fit:cover;  border-top-left-radius: 1rem; border-top-right-radius:1rem;" controls>
+                            <source src="@item.url}" type="video/mp4">
                 Your browser does not support the video tag.
-            </video>
-        </div>
+                        </video>
+                    }
+                    else
+                    {
+                        <img src="@item.url" class="w-100" style="aspect-ratio:5/6; object-fit:cover;  border-top-left-radius: 1rem; border-top-right-radius:1rem;" />
+                    }
+                </div>
         <div class="content">
             <div class="d-flex flex-column p-3 pb-0 gap-2">
                 <button class="btn btn-success"
-                        onclick="window.location.href='@contentUrl'">
-                    Download Post
+                        onclick="window.location.href='@item.url'">
+                    Download
                 </button>
                 <button class="btn btn-primary"
                         onclick="window.location.href='@url'">
@@ -45,6 +70,8 @@
         <div class="text-secondary px-3 pb-2">Twitter <a href="https://twitter.com/realalita" target="_blank">@@realAlita</a></div>
    
     </div>
+    </div>
+    }
     </div>
 </body>
 </html>
