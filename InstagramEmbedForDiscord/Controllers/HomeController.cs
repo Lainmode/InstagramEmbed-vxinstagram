@@ -108,12 +108,12 @@ namespace InstagramEmbedForDiscord.Controllers
 
         private IActionResult ProcessMultipleItems(List<InstagramMedia> media, string originalLink, string id)
         {
-            List<SKBitmap> bitmaps = GetMultipleImages(media);
+            List<SKBitmap> bitmaps = GetMultipleImages(media.Take(16).ToList());
 
             if (bitmaps.Count == 0)
                 return BadRequest("No images to process.");
 
-            int columns = 2;
+            int columns = media.Count <= 5 ? 2 : media.Count <= 9 ? 3 : media.Count <= 16 ? 4 : 0;
             int rows = (int)Math.Ceiling((double)bitmaps.Count / columns);
 
             List<List<SKBitmap>> bitmapRows = new();
@@ -134,6 +134,7 @@ namespace InstagramEmbedForDiscord.Controllers
                 int rowWidth = row.Sum(img => img.Width);
                 int rowHeight = row.Max(img => img.Height);
 
+
                 rowWidths.Add(rowWidth);
                 rowHeights.Add(rowHeight);
 
@@ -143,10 +144,9 @@ namespace InstagramEmbedForDiscord.Controllers
                 canvasHeight += rowHeight;
             }
 
-            // Create final canvas
             using var finalBitmap = new SKBitmap(canvasWidth, canvasHeight);
             using var canvas = new SKCanvas(finalBitmap);
-            canvas.Clear(SKColors.Black); // Optional background
+            canvas.Clear(GetAverageColor(bitmaps)); 
 
             int yOffset = 0;
 
@@ -159,7 +159,15 @@ namespace InstagramEmbedForDiscord.Controllers
                 foreach (var img in row)
                 {
                     float offsetY = yOffset + (rowHeight - img.Height) / 2f;
-                    canvas.DrawBitmap(img, xOffset, offsetY);
+                    float offsetX = xOffset;
+
+                    if(row.IndexOf(img) == row.Count-1)
+                    {
+                        var remainingWidth = canvasWidth - (row.Sum(e => e.Width)-img.Width);
+                        offsetX = (offsetX + remainingWidth - img.Width);
+                    }
+
+                    canvas.DrawBitmap(img, offsetX, offsetY);
                     xOffset += img.Width;
                 }
 
@@ -168,18 +176,15 @@ namespace InstagramEmbedForDiscord.Controllers
 
             canvas.Flush();
 
-            // Convert to JPEG
             using var image = SKImage.FromBitmap(finalBitmap);
             using var data = image.Encode(SKEncodedImageFormat.Png, 90);
 
-            // Ensure folder exists
             string folderPath = Path.Combine(_env.WebRootPath, "generated");
             if (!Directory.Exists(folderPath))
             {
                 Directory.CreateDirectory(folderPath);
             }
 
-            // Save image
             string fileName = $"{SanitizeFileName(id)}.png";
             string savePath = Path.Combine(folderPath, fileName);
 
@@ -191,7 +196,6 @@ namespace InstagramEmbedForDiscord.Controllers
                 }
             }
 
-            // Build absolute URL
             string contentUrl = $"{Request.Scheme}://{Request.Host}/generated/{fileName}";
 
             ViewBag.IsPhoto = true;
@@ -204,19 +208,22 @@ namespace InstagramEmbedForDiscord.Controllers
         {
             List<Task> tasks = [];
             List<SKBitmap?> bitmaps = [];
+            List <KeyValuePair<int, SKBitmap?>?> keyValuePairs = [];
             foreach(var item in media)
             {
                 bool isVideo = item.type == "video";
                 string image = isVideo ? item.thumbnail : item.url;
-                tasks.Add(Task.Run(async () => bitmaps.Add(await LoadJpegFromUrlAsync(image, isVideo))));
+                tasks.Add(Task.Run(async () => keyValuePairs.Add(await LoadJpegFromUrlAsync(image,media.IndexOf(item) , isVideo))));
             }
             Task t = Task.WhenAll(tasks);
             t.Wait();
 
+
+            bitmaps = keyValuePairs.Where(f => f != null).OrderBy(e => e.Value.Key).Select(g=>g.Value.Value).ToList();
             return bitmaps.Where(e => e != null).ToList() as List<SKBitmap>;
         }
 
-        private async Task<SKBitmap?> LoadJpegFromUrlAsync(string imageUrl, bool isVideo=false)
+        private async Task<KeyValuePair<int, SKBitmap?>?> LoadJpegFromUrlAsync(string imageUrl, int index, bool isVideo=false)
         {
             using (HttpClient client = new HttpClient())
             {
@@ -230,18 +237,26 @@ namespace InstagramEmbedForDiscord.Controllers
                         if(isVideo)
                         {
                             SKCanvas canvas = new SKCanvas(bitmap);
-                            SKPaint paint = new SKPaint();
+                            var bytes = System.IO.File.ReadAllBytes(Path.Combine(_env.WebRootPath, "video.png"));
+                            SKBitmap videoBitmap = SKBitmap.Decode(bytes);
+                            var paint = new SKPaint
+                            {
+                                Color = SKColors.White.WithAlpha(220)
+                                
+                            };
 
                             float x = 10;
-                            float y = bitmap.Height - 10;
+                            float y = bitmap.Height - videoBitmap.Height - 10;
 
-                            canvas.DrawText("Video", new SKPoint(x,y), new SKTextAlign(), new SKFont(typeface: SKTypeface.FromFamilyName("Roboto")), paint);
+                            //canvas.DrawText("Video", new SKPoint(x,y), new SKTextAlign(), new SKFont(size:16, typeface: SKTypeface.FromFamilyName("Roboto")), paint);
+
+                            canvas.DrawBitmap(videoBitmap, new SKPoint(x, y), paint);
 
                             canvas.Flush();
                             canvas.Dispose();
 
                         }
-                        return bitmap;
+                        return new KeyValuePair<int, SKBitmap?>(index, bitmap);
                     }
                 }
                 catch
@@ -261,9 +276,48 @@ namespace InstagramEmbedForDiscord.Controllers
             }
             return input;
         }
+        private static SKColor GetAverageColor(List<SKBitmap> bitmaps, bool skipTransparent = true, int step = 1)
+        {
+            if (bitmaps == null || bitmaps.Count == 0)
+                return SKColors.Transparent;
+
+            long totalR = 0, totalG = 0, totalB = 0;
+            int counted = 0;
+
+            foreach (var bitmap in bitmaps)
+            {
+                for (int y = 0; y < bitmap.Height; y += step)
+                {
+                    for (int x = 0; x < bitmap.Width; x += step)
+                    {
+                        var color = bitmap.GetPixel(x, y);
+
+                        if (skipTransparent && color.Alpha == 0)
+                            continue;
+
+                        totalR += color.Red;
+                        totalG += color.Green;
+                        totalB += color.Blue;
+                        counted++;
+                    }
+                }
+            }
+
+            if (counted == 0)
+                return SKColors.Transparent; // No visible pixels found
+
+            return new SKColor(
+                (byte)(totalR / counted),
+                (byte)(totalG / counted),
+                (byte)(totalB / counted)
+            );
+        }
+
 
 
     }
+
+
 
 
 
