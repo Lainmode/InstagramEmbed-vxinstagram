@@ -38,13 +38,26 @@
     
     <title>InstagramEmbed</title>
 </head>
-<body class=" d-flex-column p-4 bg-dark text-light align-items-center justify-content-center">
-    <a target="_blank" href="https://www.buymeacoffee.com/alsauce"><img class="mb-2" style="height:2.5rem" src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=alsauce&button_colour=954b89&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00" /></a>
-<div class="row g-5 align-items-center w-100 justify-content-center mx-auto">
+<body class=" d-flex-column bg-dark text-light align-items-center justify-content-center">
+
+    <div class="d-flex border-bottom border-secondary p-4 align-items-center justify-content-between shadow">
+        <div>
+
+        <div class="text-secondary">InstagramEmbed by <a href="https://github.com/Lainmode/InstagramEmbedForDiscord" target="_blank">Lainmode</a></div>
+        <div class="text-secondary">Twitter <a href="https://twitter.com/realalita" target="_blank">@@realAlita</a></div>
+        </div>
+
+        <a target="_blank" href="https://www.buymeacoffee.com/alsauce"><img class="mb-2" style="height:2.5rem" src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=alsauce&button_colour=954b89&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00" /></a>
+
+</div>
+
+
+
+    <div class="row g-5 align-items-center w-100 justify-content-center mx-auto  p-4">
         @foreach (var item in files)
         {
             <div class="col-12 col-md-6 col-lg-4">
-            <div class="card-body my-auto shadow px-0 py-0 bg-dark text-light border border-secondary" style="height:fit-content;flex:0;border-radius:1rem">
+            <div class="card-body my-auto shadow px-0 py-0 bg-dark text-light border border-secondary pb-3" style="height:fit-content;flex:0;border-radius:1rem">
                 <div class="media-container w-100">
                     @if (item.type == "video")
                     {
@@ -70,9 +83,7 @@
                 </button>
             </div>
         </div>
-        <div class="text-secondary px-3 mt-2">InstagramEmbed by <a href="https://github.com/Lainmode/InstagramEmbedForDiscord" target="_blank">Lainmode</a></div>
-        <div class="text-secondary px-3 pb-2">Twitter <a href="https://twitter.com/realalita" target="_blank">@@realAlita</a></div>
-   
+
     </div>
     </div>
     }
