@@ -65,7 +65,7 @@ namespace InstagramEmbedForDiscord.Controllers
 
                 if (media.Count == 1) return await ProcessSingleItem(media.First(), client, link);
                 else if (index != null && int.TryParse(index, out int intIndex) && media.Count>=intIndex) return await ProcessSingleItem(media[intIndex<=0?0:intIndex-1], client, link);
-                else return ProcessMultipleItems(media, link, id);
+                else return await ProcessMultipleItems(media, link, id);
             }
             //}
 
@@ -106,9 +106,9 @@ namespace InstagramEmbedForDiscord.Controllers
             return View(data);
         }
 
-        private IActionResult ProcessMultipleItems(List<InstagramMedia> media, string originalLink, string id)
+        private async Task<IActionResult> ProcessMultipleItems(List<InstagramMedia> media, string originalLink, string id)
         {
-            List<SKBitmap> bitmaps = GetMultipleImages(media.Take(16).ToList());
+            List<SKBitmap> bitmaps = await GetMultipleImages(media.Take(16).ToList());
 
             if (bitmaps.Count == 0)
                 return BadRequest("No images to process.");
@@ -204,7 +204,7 @@ namespace InstagramEmbedForDiscord.Controllers
         }
 
 
-        private List<SKBitmap> GetMultipleImages(List<InstagramMedia> media)
+        private async Task<List<SKBitmap>> GetMultipleImages(List<InstagramMedia> media)
         {
             List<Task> tasks = [];
             List<SKBitmap?> bitmaps = [];
@@ -216,7 +216,7 @@ namespace InstagramEmbedForDiscord.Controllers
                 tasks.Add(Task.Run(async () => keyValuePairs.Add(await LoadJpegFromUrlAsync(image,media.IndexOf(item) , isVideo))));
             }
             Task t = Task.WhenAll(tasks);
-            t.Wait();
+            await t;
 
 
             bitmaps = keyValuePairs.Where(f => f != null).OrderBy(e => e.Value.Key).Select(g=>g.Value.Value).ToList();
