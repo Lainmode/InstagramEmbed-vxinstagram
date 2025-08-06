@@ -20,8 +20,10 @@
     @if(isPhoto)
     {
         <meta property="og:image" content="@contentUrl" />
-        <meta property="og:type" content="website" />
-    }
+        <meta property="og:type" content="video.other" />
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:image" content="@contentUrl" />
+     }
     else
     {
         <meta property="og:type" content="video.other" />
@@ -29,6 +31,8 @@
         <meta property="og:video:secure_url" content="@contentUrl" />
         <meta property="og:video:type" content="video/mp4" />
         <meta name="twitter:player" content="@url" />
+        <meta name="twitter:card" content="video.other" />
+
     }
 
     

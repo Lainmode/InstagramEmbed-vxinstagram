@@ -177,7 +177,7 @@ namespace InstagramEmbedForDiscord.Controllers
             canvas.Flush();
 
             using var image = SKImage.FromBitmap(finalBitmap);
-            using var data = image.Encode(SKEncodedImageFormat.Png, 90);
+            using var data = image.Encode(SKEncodedImageFormat.Jpeg, 90);
 
             string folderPath = Path.Combine(_env.WebRootPath, "generated");
             if (!Directory.Exists(folderPath))
@@ -185,7 +185,7 @@ namespace InstagramEmbedForDiscord.Controllers
                 Directory.CreateDirectory(folderPath);
             }
 
-            string fileName = $"{SanitizeFileName(id)}.png";
+            string fileName = $"{SanitizeFileName(id)}.jpg";
             string savePath = Path.Combine(folderPath, fileName);
 
             if (!Path.Exists(savePath))
@@ -196,7 +196,7 @@ namespace InstagramEmbedForDiscord.Controllers
                 }
             }
 
-            string contentUrl = $"{Request.Scheme}://{Request.Host}/generated/{fileName}";
+            string contentUrl = $"https://{Request.Host}/generated/{fileName}";
 
             ViewBag.IsPhoto = true;
             ViewBag.Files = media;
