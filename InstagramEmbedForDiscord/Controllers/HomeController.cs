@@ -64,7 +64,7 @@ namespace InstagramEmbedForDiscord.Controllers
                         return BadRequest("No media found.");
 
                 if (media.Count == 1) return await ProcessSingleItem(media.First(), client, link);
-                else if (index != null && int.TryParse(index, out int intIndex) && media.Count>=intIndex) return await ProcessSingleItem(media[intIndex-1], client, link);
+                else if (index != null && int.TryParse(index, out int intIndex) && media.Count>=intIndex) return await ProcessSingleItem(media[intIndex==0?intIndex+1:intIndex], client, link);
                 else return ProcessMultipleItems(media, link, id);
             }
             //}
