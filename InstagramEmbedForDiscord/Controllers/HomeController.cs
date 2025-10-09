@@ -485,6 +485,7 @@ namespace InstagramEmbedForDiscord.Controllers
         {
             postUrl = postUrl.Replace("reels", "reel");
 
+            var apiUrl = "YOUR_API";
 
             var jsonPayload = $@"{{
                 ""addParentData"": false,
