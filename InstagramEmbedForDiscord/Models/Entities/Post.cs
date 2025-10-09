@@ -1,10 +1,20 @@
-﻿namespace InstagramEmbedForDiscord.Models.Entities
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace InstagramEmbedForDiscord.Models.Entities
 {
     public class Post
     {
-        public int ID { get; set; }
+        [Key]
+        public string ID { get; set; } = string.Empty;
         public string RawUrl { get; set; } = string.Empty;
-        public string InstagramID { get; set; } = string.Empty;
+        public string Caption { get; set; } = string.Empty;
+        public string AuthorName { get; set; } = string.Empty;
+        public string AuthorUsername { get; set; } = string.Empty;
+        public int Likes { get; set; }
+        public int Comments { get; set; }
+        public int Shares { get; set; }
+        public PostType PostType { get; set; }
+
         public DateTime CreatedAt { get; set; } = DateTime.Now;
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
 
@@ -28,5 +38,13 @@
         None,
         Video,
         Image,
+    }
+
+    public enum PostType
+    {
+        None,
+        Post,
+        Share,
+        Story
     }
 }

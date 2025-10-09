@@ -12,8 +12,10 @@ using System;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Net.NetworkInformation;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
@@ -58,7 +60,6 @@ namespace InstagramEmbedForDiscord.Controllers
                     return BadRequest("Invalid Instagram path.");
 
                 var segments = path.Trim('/').Split('/');
-
                 int orderIndex = -1;
                 string? lastSegment = segments.LastOrDefault();
 
@@ -72,67 +73,169 @@ namespace InstagramEmbedForDiscord.Controllers
                     orderIndex = imgIndex.Value <= 0 ? 1 : imgIndex.Value;
                 }
 
-                string? id = segments.LastOrDefault();                // hash
+                string? id = segments.LastOrDefault(); // hash
                 string? type = segments.Length > 1 ? segments[^2] : segments.FirstOrDefault(); // p, reel, etc.
                 string? username = segments.Length > 2 ? segments[0] : null;
 
+                var postType = PostType.Post;
 
                 if (username?.ToLower() == "stories")
                 {
                     username = type;
                     type = $"stories/{username}";
+                    postType = PostType.Story;
                 }
-
                 else if (username?.ToLower() == "share")
                 {
                     type = $"share/{type}";
+                    postType = PostType.Share;
                 }
 
-                // Rebuild link
                 string link = $"https://instagram.com/{type}/{id}/";
-
-
                 ViewBag.PostId = id;
                 ViewBag.Order = orderIndex;
+                ViewBag.PostType = postType;
 
-                using (HttpClient client = new HttpClient())
+                using var client = new HttpClient();
+                client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Mozilla", "5.0"));
+                using var db = new IGContext();
+
+                var dbPost = db.Posts.FirstOrDefault(e => e.ID == id && e.PostType == postType);
+
+                if (dbPost != null && dbPost.SnapSaveEntries.Any())
                 {
-                    client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Mozilla", "5.0"));
+                    var firstEntry = dbPost.SnapSaveEntries.First();
+                    bool linkStillValid = await IsMediaUrlValidAsync(client, firstEntry.MediaUrl);
 
-                    // Fetch SnapSave/Instagram API response
-                    var instagramResponse = await GetSnapsaveResponse(link, client);
-                    var media = instagramResponse.url?.data?.media;
-
-                    // Only fetch PostDetails if host matches d.vxinstagram.com
-                    if (Request.Host.Host.EndsWith("d.vxinstagram.com", StringComparison.OrdinalIgnoreCase))
+                    if (linkStillValid)
                     {
-                        ViewBag.PostDetails = await GetPostDetails(client, id);
+                        return await ProcessMedia(orderIndex, dbPost, client, link, id);
                     }
 
-                    if (media == null || media.Count == 0)
-                        return BadRequest("No media found.");
-
-                    // Limit media to max 16 items
-                    media = media.Take(16).ToList();
-
-                    if (media.Count == 1)
+                    // ✅ 3. If invalid, refresh media links
+                    var refreshed = await GetSnapsaveResponse(link, client);
+                    var newMedia = refreshed.url?.data?.media;
+                    if (newMedia != null && newMedia.Any())
                     {
-                        return ProcessSingleItem(media.First(), client, link);
+                        dbPost.SnapSaveEntries.Clear();
+
+                        for (int i = 0; i < newMedia.Count; i++)
+                        {
+                            var item = newMedia.ElementAt(i);
+                            dbPost.SnapSaveEntries.Add(new SnapSaveEntry
+                            {
+                                MediaType = item.type == "video" ? MediaType.Video : MediaType.Image,
+                                MediaUrl = item.url,
+                                Order = i,
+                                ThumbnailUrl = item.thumbnail,
+                                UpdatedAt = DateTime.Now
+                            });
+                        }
+
+                        db.SaveChanges();
+
+                        return await ProcessMedia(orderIndex, dbPost, client, link, id);
                     }
-
-                    // Use orderIndex if valid
-                    if (orderIndex > 0 && orderIndex <= media.Count)
-                        return ProcessSingleItem(media[orderIndex - 1], client, link);
-
-                    // Otherwise, return multiple items
-                    return await ProcessMultipleItems(media, link, id);
                 }
+
+                var instagramResponse = await GetSnapsaveResponse(link, client);
+                var media = instagramResponse.url?.data?.media;
+                if (media == null || media.Count == 0)
+                    return BadRequest("No media found.");
+
+                InstagramPostDetails? postDetails = null;
+
+                if (Request.Host.Host.EndsWith("d.vxinstagram.com", StringComparison.OrdinalIgnoreCase) || true)
+                {
+                    postDetails = await GetScrapedPostDetailsFromAPIFY(client, link);
+                    ViewBag.PostDetails = postDetails;
+                }
+
+                dbPost = new Post
+                {
+                    ID = id!,
+                    AuthorName = postDetails?.Username ?? string.Empty,
+                    AuthorUsername = postDetails?.DisplayName ?? string.Empty,
+                    Caption = postDetails?.Caption ?? string.Empty,
+                    Comments = postDetails?.Comments ?? 0,
+                    Likes = postDetails?.Likes ?? 0,
+                    RawUrl = link,
+                    PostType = postType,
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now,
+                    SnapSaveEntries = media.Select((m, i) => new SnapSaveEntry
+                    {
+                        MediaType = m.type == "video" ? MediaType.Video : MediaType.Image,
+                        MediaUrl = m.url,
+                        Order = i,
+                        ThumbnailUrl = m.thumbnail
+                    }).ToList()
+                };
+
+                db.Posts.Add(dbPost);
+                db.SaveChanges();
+
+                if (media.Count == 1)
+                    return ProcessSingleItem(media.First(), client, link);
+
+                if (orderIndex > 0 && orderIndex <= media.Count)
+                    return ProcessSingleItem(media[orderIndex - 1], client, link);
+
+                return await ProcessMultipleItems(media, link, id);
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.Message); // Replace with ILogger in production
+                Console.WriteLine(ex.Message);
                 return View("Error");
             }
+        }
+
+
+        private static async Task<bool> IsMediaUrlValidAsync(HttpClient client, string url)
+        {
+            try
+            {
+                var headRequest = new HttpRequestMessage(HttpMethod.Head, url);
+                var response = await client.SendAsync(headRequest);
+                if (!response.IsSuccessStatusCode) return false;
+
+                var type = response.Content.Headers.ContentType?.MediaType;
+                return type != null && (type.StartsWith("image") || type.StartsWith("video"));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private async Task<IActionResult> ProcessMedia(int orderIndex, Post dbPost, HttpClient client, string link, string id)
+        {
+            if (orderIndex > 0 && orderIndex <= dbPost.SnapSaveEntries.Count)
+                return ProcessSingleItem(new InstagramMedia
+                {
+                    url = dbPost.SnapSaveEntries.ElementAt(orderIndex - 1).MediaUrl,
+                    thumbnail = dbPost.SnapSaveEntries.ElementAt(orderIndex - 1).ThumbnailUrl,
+                    type = dbPost.SnapSaveEntries.ElementAt(orderIndex - 1).MediaType.ToString().ToLower()
+                }, client, link);
+
+            if (dbPost.SnapSaveEntries.Count == 1)
+                return ProcessSingleItem(new InstagramMedia
+                {
+                    url = dbPost.SnapSaveEntries.First().MediaUrl,
+                    thumbnail = dbPost.SnapSaveEntries.First().ThumbnailUrl,
+                    type = dbPost.SnapSaveEntries.First().MediaType.ToString().ToLower()
+                }, client, link);
+
+            return await ProcessMultipleItems(
+                dbPost.SnapSaveEntries.Select(e => new InstagramMedia
+                {
+                    url = e.MediaUrl,
+                    thumbnail = e.ThumbnailUrl,
+                    type = e.MediaType.ToString().ToLower()
+                }).ToList(),
+                link,
+                id
+            );
         }
 
 
@@ -224,15 +327,17 @@ namespace InstagramEmbedForDiscord.Controllers
 
 
 
-        [Route("/offload/{id}/{order?}")]
-        public async Task<IActionResult> OffloadPost(int id, int? order)
+        [Route("/offload/{type}/{id}/{order?}")]
+        public async Task<IActionResult> OffloadPost(PostType type, string id, int? order)
         {
             int orderIndex = (order ?? 1) - 1;
             if (orderIndex < 0) orderIndex = 0;
 
             IGContext db = new IGContext();
 
-            var post = db.Posts.Find(id);
+
+
+            var post = db.Posts.FirstOrDefault(e => e.ID == id && e.PostType == type);
 
             if (post == null)
                 return NotFound();
@@ -376,6 +481,62 @@ namespace InstagramEmbedForDiscord.Controllers
             return Content(json, "application/json");
         }
 
+        private async Task<InstagramPostDetails> GetScrapedPostDetailsFromAPIFY(HttpClient client, string postUrl)
+        {
+            postUrl = postUrl.Replace("reels", "reel");
+
+
+            var jsonPayload = $@"{{
+                ""addParentData"": false,
+                ""directUrls"": [
+                    ""{postUrl}""
+                ],
+                ""enhanceUserSearchWithFacebookPage"": false,
+                ""isUserReelFeedURL"": false,
+                ""isUserTaggedFeedURL"": false,
+                ""resultsLimit"": 1,
+                ""resultsType"": ""details"",
+                ""searchLimit"": 1,
+                ""searchType"": ""hashtag""
+            }}";
+            var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            try
+            {
+                var response = await client.PostAsync(apiUrl, content);
+                response.EnsureSuccessStatusCode();
+
+                var responseBody = await response.Content.ReadAsStringAsync();
+                var scraperDetails = JsonConvert.DeserializeObject<List<ScraperInstagramPost>>(
+                     responseBody,
+                     new JsonSerializerSettings
+                     {
+                         ContractResolver = new Newtonsoft.Json.Serialization.DefaultContractResolver
+                         {
+                             NamingStrategy = new Newtonsoft.Json.Serialization.DefaultNamingStrategy()
+                         },
+                         MissingMemberHandling = MissingMemberHandling.Ignore,
+                         NullValueHandling = NullValueHandling.Ignore
+                     })!.First();
+
+                return new InstagramPostDetails()
+                {
+                    Username = scraperDetails.OwnerUsername,
+                    DisplayName = scraperDetails.OwnerFullName,
+                    Caption = scraperDetails.Caption,
+                    Likes = scraperDetails.LikesCount,
+                    Comments = scraperDetails.CommentsCount,
+                    Views = scraperDetails.VideoViewCount,
+                    AudioName = $"{scraperDetails.MusicInfo?.SongName} - {scraperDetails.MusicInfo?.ArtistName}",
+                };
+
+            }
+            catch (Exception e)
+            {
+                return new InstagramPostDetails();
+            }
+        }
+
         private async Task<InstagramPostDetails> GetPostDetails(HttpClient client, string id)
         {
             try
@@ -419,8 +580,8 @@ namespace InstagramEmbedForDiscord.Controllers
                 {
                     Username = username,
                     Avatar = profileImg,
-                    Likes = likes,
-                    Description = description
+                    Likes = likes != null ? int.Parse(likes) : 0,
+                    Caption = description
                 };
             }
             catch
@@ -717,9 +878,13 @@ namespace InstagramEmbedForDiscord.Controllers
     public class InstagramPostDetails
     {
         public string? Username { get; set; } = string.Empty;
+        public string? DisplayName { get; set; } = string.Empty;
         public string? Avatar { get; set; } = string.Empty;
-        public string? Likes { get; set; } = string.Empty;
-        public string? Description { get; set; } = string.Empty;
+        public int Likes { get; set; }
+        public int Comments { get; set; }
+        public int Views { get; set; }
+        public string? Caption { get; set; } = string.Empty;
+        public string? AudioName { get; set; } = string.Empty;
     }
 
 
@@ -812,6 +977,46 @@ namespace InstagramEmbedForDiscord.Controllers
     }
 
 
+    public class ScraperInstagramPost
+    {
+        public string InputUrl { get; set; }
+        public string Id { get; set; }
+        public string Type { get; set; }
+        public string ShortCode { get; set; }
+        public string Caption { get; set; }
+        public List<string> Hashtags { get; set; }
+        public List<string> Mentions { get; set; }
+        public string Url { get; set; }
+        public int CommentsCount { get; set; }
+        public int DimensionsHeight { get; set; }
+        public int DimensionsWidth { get; set; }
+        public string DisplayUrl { get; set; }
+        public List<string> Images { get; set; }
+        public string VideoUrl { get; set; }
+        public string Alt { get; set; }
+        public int LikesCount { get; set; }
+        public int VideoViewCount { get; set; }
+        public int VideoPlayCount { get; set; }
+        public DateTime Timestamp { get; set; }
+        public List<object> ChildPosts { get; set; }
+        public string OwnerFullName { get; set; }
+        public string OwnerUsername { get; set; }
+        public string OwnerId { get; set; }
+        public string ProductType { get; set; }
+        public double VideoDuration { get; set; }
+        public bool IsSponsored { get; set; }
+        public MusicInfo MusicInfo { get; set; }
+        public bool IsCommentsDisabled { get; set; }
+    }
 
+    public class MusicInfo
+    {
+        public string ArtistName { get; set; }
+        public string SongName { get; set; }
+        public bool UsesOriginalAudio { get; set; }
+        public bool ShouldMuteAudio { get; set; }
+        public string ShouldMuteAudioReason { get; set; }
+        public string AudioId { get; set; }
+    }
 
 }

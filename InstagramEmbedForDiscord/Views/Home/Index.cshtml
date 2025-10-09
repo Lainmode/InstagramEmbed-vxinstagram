@@ -6,6 +6,7 @@
     string thumbnailUrl = Model[1];
     string url = Model[2];
     bool isPhoto = ViewBag.IsPhoto;
+    InstagramEmbedForDiscord.Models.Entities.PostType postType = ViewBag.PostType;
 
     string postId = ViewBag.PostID;
     int order = ViewBag.Order ?? 1;
@@ -15,7 +16,7 @@
 
     if(contentUrl.Contains("rapidcdn"))
     {
-        contentUrl = $"{baseUrl}/VerifySnapsaveLink?postid={postId}&order={order}&rapidsaveUrl={contentUrl}";
+        contentUrl = $"{baseUrl}/offload/{postType.ToString().ToLower()}/{postId}/{order-1}";
     }
 
     // int width = ViewBag.Width ?? 0;
@@ -40,7 +41,7 @@
         @if(postDetails!=null)
         {
             <meta property="og:description"
-                  content="@postDetails.Description">
+                  content="@(postDetails.Caption + "\n\n" + postDetails.AudioName)">
         }
   }
     else
@@ -67,8 +68,8 @@
     @if(postDetails!=null)
     {
          <link rel="alternate" type="application/json+oembed"
-              href="@(baseUrl)/oembed?username=@postDetails.Username&desc=@(isPhoto?null:postDetails.Description)" /> 
-@*         <link rel="alternate" type="application/activity+json"
+              href="@(baseUrl)/oembed?username=@postDetails.Username&desc=@(isPhoto?null:postDetails.Caption + "\n\n" + postDetails.AudioName)" />
+        @*         <link rel="alternate" type="application/activity+json"
               href="@(baseUrl)/activity?link=@Uri.EscapeDataString(contentUrl)&username=@postDetails.Username&avatar=@postDetails.Avatar&likes=@postDetails.Likes&postId=@postId&mediaType=@(isPhoto ? "image" : "video")"/>
  *@     }
   
