@@ -41,7 +41,7 @@
         @if(postDetails!=null)
         {
             <meta property="og:description"
-                  content="@(postDetails.Caption + "\n\n" + postDetails.AudioName)">
+                  content="@(postDetails.Caption + "\n\n" + $"❤️ {postDetails.Likes} 💬{postDetails.Comments}")" )">
         }
   }
     else
@@ -68,7 +68,7 @@
     @if(postDetails!=null)
     {
          <link rel="alternate" type="application/json+oembed"
-              href="@(baseUrl)/oembed?username=@postDetails.Username&desc=@(isPhoto?null:postDetails.Caption + "\n\n" + postDetails.AudioName)" />
+              href="@(baseUrl)/oembed?username=@postDetails.Username&desc=@(isPhoto?null:postDetails.Caption + "\n\n" + $"❤️ {postDetails.Likes} 💬{postDetails.Comments}")" />
         @*         <link rel="alternate" type="application/activity+json"
               href="@(baseUrl)/activity?link=@Uri.EscapeDataString(contentUrl)&username=@postDetails.Username&avatar=@postDetails.Avatar&likes=@postDetails.Likes&postId=@postId&mediaType=@(isPhoto ? "image" : "video")"/>
  *@     }
