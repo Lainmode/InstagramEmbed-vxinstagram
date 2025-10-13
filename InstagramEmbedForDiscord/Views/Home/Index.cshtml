@@ -9,14 +9,14 @@
     InstagramEmbedForDiscord.Models.Entities.PostType postType = ViewBag.PostType;
 
     string postId = ViewBag.PostID;
-    int order = ViewBag.Order ?? 1;
+    int orderIndex = ViewBag.Order ?? 0;
 
     var baseUrl = $"https://{Context.Request.Host}";
 
 
     if(contentUrl.Contains("rapidcdn"))
     {
-        contentUrl = $"{baseUrl}/offload/{postType.ToString().ToLower()}/{postId}/{order-1}";
+        contentUrl = $"{baseUrl}/offload/{postType.ToString().ToLower()}/{postId}/{orderIndex}";
     }
 
     // int width = ViewBag.Width ?? 0;
