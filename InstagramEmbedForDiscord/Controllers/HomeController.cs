@@ -161,7 +161,7 @@ namespace InstagramEmbedForDiscord.Controllers
 
                 InstagramPostDetails? postDetails = null;
 
-                if (Request.Host.Host.EndsWith("d.vxinstagram.com", StringComparison.OrdinalIgnoreCase) || true)
+                if (Request.Host.Host.EndsWith("d.vxinstagram.com", StringComparison.OrdinalIgnoreCase))
                 {
                     //postDetails = await GetPostDetails(link);
                     postDetails = await GetScrapedPostDetailsFromAPIFY(client, link);
