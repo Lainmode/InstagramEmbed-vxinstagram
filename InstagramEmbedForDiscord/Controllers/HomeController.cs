@@ -79,7 +79,7 @@ namespace InstagramEmbedForDiscord.Controllers
                     orderSpecified = true;
                 }
 
-                string? id = segments.LastOrDefault(); // hash
+                string id = segments.Last(); // hash
                 string? type = segments.Length > 1 ? segments[^2] : segments.FirstOrDefault(); // p, reel, etc.
                 string? username = segments.Length > 2 ? segments[0] : null;
 
@@ -106,7 +106,7 @@ namespace InstagramEmbedForDiscord.Controllers
                 client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Mozilla", "5.0"));
                 using var db = new IGContext();
 
-                var dbPost = db.Posts.FirstOrDefault(e => e.ID == id && e.PostType == postType);
+                var dbPost = db.Posts.Find(id);
 
 
                 if (dbPost != null && dbPost.SnapSaveEntries.Any())
@@ -251,32 +251,6 @@ namespace InstagramEmbedForDiscord.Controllers
         public IActionResult HomePage()
         {
             return View();
-        }
-
-        [Route("/generated/{fileName}")]
-        public async Task<IActionResult> Generated(string fileName)
-        {
-            string folderPath = Path.Combine(_env.WebRootPath, "generated");
-            string filePath = Path.Combine(folderPath, fileName);
-
-            if (!System.IO.File.Exists(filePath))
-            {
-                var postId = Path.GetFileNameWithoutExtension(fileName);
-                using (HttpClient client = new HttpClient())
-                {
-                    var instagramResponse = await GetSnapsaveResponse("https://instagram.com/p/" + postId, client);
-                    if (instagramResponse.url?.data?.media == null || instagramResponse.url.data.media.Count == 0)
-                        return NotFound();
-
-                    await GenerateAlbumImageFile(instagramResponse.url?.data?.media ?? new List<InstagramMedia>(), fileName);
-
-                    var newImageBytes = System.IO.File.ReadAllBytes(filePath);
-                    return File(newImageBytes, "image/jpeg");
-                }
-            }
-
-            var imageBytes = System.IO.File.ReadAllBytes(filePath);
-            return File(imageBytes, "image/jpeg");
         }
 
         [Route("/VerifySnapsaveLink")]
