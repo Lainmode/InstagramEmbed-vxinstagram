@@ -151,36 +151,6 @@ namespace InstagramEmbedForDiscord.Controllers
             return View();
         }
 
-        [Route("/generated/{fileName}")]
-        public async Task<IActionResult> Generated(string fileName)
-        {
-            string folderPath = Path.Combine(_env.WebRootPath, "generated");
-            string filePath = Path.Combine(folderPath, fileName);
-
-            if (!System.IO.File.Exists(filePath))
-            {
-                return NotFound();
-                var postId = Path.GetFileNameWithoutExtension(fileName);
-                using (HttpClient client = new HttpClient())
-                {
-                    var instagramResponse = await GetSnapsaveResponse("https://instagram.com/p/" + postId, client);
-                    if (instagramResponse.url?.data?.media == null || instagramResponse.url.data.media.Count == 0)
-                        return NotFound();
-
-                    var newFileName = await GetGeneratedFile(instagramResponse.url?.data?.media ?? new List<InstagramMedia>(), postId);
-                    if (newFileName == null) return NotFound();
-
-                    string newFilePath = Path.Combine(folderPath, newFileName);
-
-                    var newImageBytes = System.IO.File.ReadAllBytes(filePath);
-                    return File(newImageBytes, "image/jpeg");
-                }
-            }
-
-            var imageBytes = System.IO.File.ReadAllBytes(filePath);
-            return File(imageBytes, "image/jpeg");
-        }
-
         [Route("/VerifySnapsaveLink")]
         public async Task<IActionResult> VerifySnapsaveLink(string rapidsaveUrl, string postId, int? order)
         {
