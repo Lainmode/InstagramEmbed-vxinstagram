@@ -1,4 +1,5 @@
-﻿using InstagramEmbedForDiscord.DAL;
+﻿using Azure;
+using InstagramEmbedForDiscord.DAL;
 using InstagramEmbedForDiscord.Models;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
@@ -150,6 +151,7 @@ namespace InstagramEmbedForDiscord.Controllers
 
             if (!System.IO.File.Exists(filePath))
             {
+                return NotFound();
                 var postId = Path.GetFileNameWithoutExtension(fileName);
                 using (HttpClient client = new HttpClient())
                 {
@@ -211,13 +213,13 @@ namespace InstagramEmbedForDiscord.Controllers
 
 
         [Route("/oembed")]
-        public IActionResult OEmbed(string username, string? desc)
+        public IActionResult OEmbed(string username, string? desc, string? likescomments)
         {
             return Json(new OEmbedModel()
             {
                 author_name = desc != null ? !desc.IsNullOrEmpty() ? desc : $"@{username}" : $"@{username}",
                 author_url = "https://instagram.com/" + username,
-                provider_name = "vxinstagram",
+                provider_name = $"vxinstagram {likescomments}",
                 provider_url = "https://github.com/Lainmode/InstagramEmbed-vxinstagram",
                 title = "",
                 type = "video",
@@ -291,50 +293,12 @@ namespace InstagramEmbedForDiscord.Controllers
         {
             try
             {
-                var embedUrl = $"https://www.instagram.com/p/{id}/embed/captioned/";
-                var html = await client.GetStringAsync(embedUrl);
-
-                // Username
-                var usernameMatch = Regex.Match(html, @"<span class=""UsernameText"">(.*?)</span>");
-                string? username = usernameMatch.Success ? usernameMatch.Groups[1].Value : null;
-
-                // Likes
-                var likesMatch = Regex.Match(html, @"(\d[\d,\.]*) likes");
-                string? likes = likesMatch.Success ? likesMatch.Groups[1].Value : null;
-
-                // Profile avatar
-                var imgMatch = Regex.Match(html, @"<a class=""Avatar InsideRing"".*?<img src=""(.*?)""", RegexOptions.Singleline);
-                string? profileImg = imgMatch.Success ? imgMatch.Groups[1].Value : null;
-
-                // 🆕 Extract description
-                string? description = null;
-                var captionMatch = Regex.Match(
-                    html,
-                    @"<div class=""Caption"">(.*?)(<div class=""CaptionComments"">|</div>)",
-                    RegexOptions.Singleline
-                );
-                if (captionMatch.Success)
-                {
-                    var rawCaptionHtml = captionMatch.Groups[1].Value;
-
-                    rawCaptionHtml = Regex.Replace(rawCaptionHtml, @"<a class=""CaptionUsername"".*?</a>", "", RegexOptions.Singleline);
-
-                    rawCaptionHtml = Regex.Replace(rawCaptionHtml, @"<br\s*/?>", "\n");
-
-                    rawCaptionHtml = Regex.Replace(rawCaptionHtml, @"<.*?>", "");
-
-                    description = System.Net.WebUtility.HtmlDecode(rawCaptionHtml).Trim();
-                }
-
-                return new InstagramPostDetails
-                {
-                    Username = username,
-                    Avatar = profileImg,
-                    Likes = likes,
-                    Description = description
-                };
+                var response = await FetchInstagramPostAsync(id);
+                var post = ExtractInstagramPostDetails(response);
+                //post.Description = post.Description + $"❤️ {post.Likes} 💬 {post.Comments}";
+                return post;
             }
-            catch
+            catch (Exception e)
             {
                 return new InstagramPostDetails();
             }
@@ -344,7 +308,7 @@ namespace InstagramEmbedForDiscord.Controllers
         private async Task<InstagramResponse> GetSnapsaveResponse(string link, HttpClient client)
         {
 
-            HttpResponseMessage snapSaveResponse = await client.GetAsync("http://alsauce.com:3200/igdl?url=" + link);
+            HttpResponseMessage snapSaveResponse = await client.GetAsync("http://localhost:3200/igdl?url=" + link);
             string snapSaveResponseString = await snapSaveResponse.Content.ReadAsStringAsync();
             InstagramResponse instagramResponse = JsonConvert.DeserializeObject<InstagramResponse>(snapSaveResponseString)!;
 
@@ -593,6 +557,98 @@ namespace InstagramEmbedForDiscord.Controllers
         }
 
 
+        public static InstagramPostDetails ExtractInstagramPostDetails(string json)
+        {
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            var item = root
+                .GetProperty("data")
+                .GetProperty("xdt_api__v1__media__shortcode__web_info")
+                .GetProperty("items")[0];
+
+            var user = item.GetProperty("user");
+
+            var details = new InstagramPostDetails
+            {
+                Username = user.GetProperty("username").GetString(),
+                Name = user.GetProperty("full_name").GetString(),
+                Avatar = user.GetProperty("profile_pic_url").GetString(),
+                Likes = item.TryGetProperty("like_count", out var likes) ? likes.GetInt32() : 0,
+                Comments = item.TryGetProperty("comment_count", out var comments) ? comments.GetInt32() : 0,
+                Description = item.TryGetProperty("caption", out var caption)
+                                ? caption.GetProperty("text").GetString()
+                                : string.Empty
+            };
+
+            return details;
+        }
+
+
+        public static async Task<string> FetchInstagramPostAsync(string shortcode)
+        {
+            using var client = new HttpClient();
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://www.instagram.com/graphql/query/");
+
+            // ----- HEADERS -----
+            request.Headers.Add("Cookie", "datr=45IbaZ3QVZBgzNu-BLmsYX0J; ig_did=914D191F-C8CB-44D3-AD9E-E674F758A22A; mid=aRuS4wALAAFs_EHSl6wD5LJMt_87; wd=1153x1065; csrftoken=zCdLU4qMl7i2wlrsVBgh22hJNXKPxPKp; ds_user_id=63534133086; sessionid=63534133086%3ATfFTdUiVbncPcn%3A22%3AAYiCzZK_RmKnXtObP-_9scXemJmMbH1r-sq2CUoQ8g; rur=\"ODN\\05463534133086\\0541794951304:01fe21ebd88ab6b4c8426d338050332c46485987446747e75b2abd419b2cdbda0c019d1d\"");
+            request.Headers.Add("Accept", "*/*");
+            request.Headers.Add("Accept-Language", "en-US,en;q=0.9");
+            request.Headers.Add("Origin", "https://www.instagram.com");
+            request.Headers.Add("Priority", "u=1, i");
+            request.Headers.Add("Sec-Fetch-Dest", "empty");
+            request.Headers.Add("Sec-Fetch-Mode", "cors");
+            request.Headers.Add("Sec-Fetch-Site", "same-origin");
+            request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36");
+
+            request.Headers.Add("X-Asbd-Id", "129477");
+            request.Headers.Add("X-Bloks-Version-Id", "e2004666934296f275a5c6b2c9477b63c80977c7cc0fd4b9867cb37e36092b68");
+            request.Headers.Add("X-Fb-Friendly-Name", "PolarisPostActionLoadPostQueryQuery");
+            request.Headers.Add("X-Ig-App-Id", "936619743392459");
+            request.Headers.Add("X-Csrftoken", "zCdLU4qMl7i2wlrsVBgh22hJNXKPxPKp");
+            request.Headers.Add("x-root-field-name", "xdt_api__v1__web__accounts__get_encrypted_credentials");
+            request.Headers.Add("X-Fb-Lsd", "lvKgZqkPPmLKqUfKIBiMFa");
+            request.Headers.Add("Referer", $"https://www.instagram.com/p/{shortcode}");
+
+
+            // ----- BODY -----
+            var body = new Dictionary<string, string>
+    {
+        { "av", "kr65yh:qhc696:klxf8v" },
+        { "__d", "www" },
+        { "__user", "0" },
+        { "__a", "1" },
+        { "__req", "k" },
+        { "__hs", "19888.HYP:instagram_web_pkg.2.1..0.0" },
+        { "dpr", "2" },
+        { "__ccg", "UNKNOWN" },
+        { "__rev", "1014227545" },
+        { "__s", "trbjos:n8dn55:yev1rm" },
+        { "__hsi", "7573775717678450108" },
+        { "__dyn", "7xeUjG1mxu1syUbFp40NonwgU7SbzEdF8aUco2qwJw5ux609vCwjE1xoswaq0yE6ucw5Mx62G5UswoEcE7O2l0Fwqo31w9a9wtUd8-U2zxe2GewGw9a362W2K0zK5o4q3y1Sx-0iS2Sq2-azo7u3C2u2J0bS1LwTwKG1pg2fwxyo6O1FwlEcUed6goK2O4UrAwCAxW6Uf9EObzVU8U" },
+        { "__csr", "n2Yfg_5hcQAG5mPtfEzil8Wn-DpKGBXhdczlAhrK8uHBAGuKCJeCieLDyExenh68aQAKta8p8ShogKkF5yaUBqCpF9XHmmhoBXyBKbQp0HCwDjqoOepV8Tzk8xeXqAGFTVoCciGaCgvGUtVU-u5Vp801nrEkO0rC58xw41g0VW07ISyie2W1v7F0CwYwwwvEkw8K5cM0VC1dwdi0hCbc094w6MU1xE02lzw" },
+        { "__comet_req", "7" },
+        { "lsd", "lvKgZqkPPmLKqUfKIBiMFa" },
+        { "jazoest", "2882" },
+        { "__spin_r", "1014227545" },
+        { "__spin_b", "trunk" },
+        { "__spin_t", "1718406700" },
+        { "fb_api_caller_class", "RelayModern" },
+        { "fb_api_req_friendly_name", "PolarisPostActionLoadPostQueryQuery" },
+        { "variables", $"{{\"shortcode\":\"{shortcode}\"}}" },
+        { "server_timestamps", "true" },
+        { "doc_id", "25018359077785073" }
+    };
+
+            request.Content = new FormUrlEncodedContent(body);
+
+            // ----- SEND -----
+            var response = await client.SendAsync(request);
+            var content = await response.Content.ReadAsStringAsync();
+
+            return content;
+        }
 
     }
 
@@ -628,8 +684,11 @@ namespace InstagramEmbedForDiscord.Controllers
     public class InstagramPostDetails
     {
         public string? Username { get; set; } = string.Empty;
+        public string? Name { get; set; } = string.Empty;
         public string? Avatar { get; set; } = string.Empty;
-        public string? Likes { get; set; } = string.Empty;
+        public int Likes { get; set; }
+        public int Comments { get; set; }
+        public int Shares { get; set; }
         public string? Description { get; set; } = string.Empty;
     }
 

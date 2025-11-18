@@ -59,7 +59,7 @@
     <meta property="theme-color" content="#eb4034" />
     <meta property="twitter:title" content="@postDetails?.Username" />
     <meta property="twitter:site" content="@postDetails?.Username" />
-    <meta property="og:site_name" content="vxInstagram" />
+    <meta property="og:site_name" content="vxInstagram @($" ❤️ {postDetails?.Likes} 💬 {postDetails?.Comments}")"   />
     <link rel="canonical" href="@url" />
     <meta property="og:url" content="@url" />
 
@@ -67,8 +67,8 @@
     @if(postDetails!=null)
     {
          <link rel="alternate" type="application/json+oembed"
-              href="@(baseUrl)/oembed?username=@postDetails.Username&desc=@(isPhoto?null:postDetails.Description)" /> 
-@*         <link rel="alternate" type="application/activity+json"
+              href="@(baseUrl)/oembed?username=@postDetails.Username&desc=@(isPhoto?null:Uri.EscapeDataString(postDetails?.Description??""))&likescomments=@($" ❤️ {postDetails?.Likes} 💬 {postDetails?.Comments}")" />
+        @*         <link rel="alternate" type="application/activity+json"
               href="@(baseUrl)/activity?link=@Uri.EscapeDataString(contentUrl)&username=@postDetails.Username&avatar=@postDetails.Avatar&likes=@postDetails.Likes&postId=@postId&mediaType=@(isPhoto ? "image" : "video")"/>
  *@     }
   
