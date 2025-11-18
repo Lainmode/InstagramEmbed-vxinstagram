@@ -14,6 +14,7 @@ namespace InstagramEmbed.DataAccess
         private readonly string connectionString = "YOUR_CONNECTION_STRING";
         public DbSet<ActionLog> ActionLogs { get; set; }
         public DbSet<Post> Posts { get; set; }
+        public DbSet<Media> Media { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
