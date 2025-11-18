@@ -1,6 +1,6 @@
 ﻿using Azure;
-using InstagramEmbedForDiscord.DAL;
-using InstagramEmbedForDiscord.Models;
+using InstagramEmbed.DataAccess;
+using InstagramEmbed.Domain.Entities;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
@@ -39,9 +39,17 @@ namespace InstagramEmbedForDiscord.Controllers
 
             Task.Run(() =>
             {
-                var dbContext = new IGContext();
+                var dbContext = new InstagramContext();
 
-                var log = ActionLog.CreateActionLog(httpContext);
+                var ipAddress = "127.0.0.1";
+
+                var forwardedFor = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(forwardedFor))
+                    ipAddress = forwardedFor.Split(',')[0];
+
+                ipAddress = httpContext.Connection.RemoteIpAddress?.ToString() ?? ipAddress;
+
+                var log = ActionLog.CreateActionLog(httpContext.Request.Method, httpContext.Request.Path + httpContext.Request.QueryString, httpContext.Request.Headers["User-Agent"].ToString(), ipAddress);
 
                 dbContext.ActionLogs.Add(log);
                 dbContext.SaveChanges();

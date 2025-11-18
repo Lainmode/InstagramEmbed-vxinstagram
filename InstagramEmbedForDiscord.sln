@@ -5,11 +5,11 @@ VisualStudioVersion = 17.10.35013.160
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "InstagramEmbed.Application", "InstagramEmbedForDiscord\InstagramEmbed.Application.csproj", "{FD31C0A6-F04D-4D47-ABDB-96217BF0B8C2}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InstagramEmbed.Web", "Web\InstagramEmbed.Web.csproj", "{2B3F394F-9155-4077-B8E5-1F718C3034DF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InstagramEmbed.DataAccess", "InstagramEmbed.DataAccess\InstagramEmbed.DataAccess.csproj", "{AE256A7F-9E38-4586-8CB2-958680082DA8}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InstagramEmbed.DataAccess", "DataAccess\InstagramEmbed.DataAccess.csproj", "{BB7FBFB6-7376-43A2-A123-A9A0445BB6F9}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InstagramEmbed.Domain", "InstagramEmbed.Domain\InstagramEmbed.Domain.csproj", "{46AD03E7-B25F-4ACF-8615-3FE5B9A7EB89}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InstagramEmbed.Domain", "InstagramEmbed.Domain\InstagramEmbed.Domain.csproj", "{A637E985-F742-4B3D-9310-B911EAAF65A5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InstagramEmbed.Web", "InstagramEmbed.Web\InstagramEmbed.Web.csproj", "{355C8174-309F-47F2-AE50-462C2081BCD0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -21,18 +21,18 @@ Global
 		{FD31C0A6-F04D-4D47-ABDB-96217BF0B8C2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FD31C0A6-F04D-4D47-ABDB-96217BF0B8C2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FD31C0A6-F04D-4D47-ABDB-96217BF0B8C2}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2B3F394F-9155-4077-B8E5-1F718C3034DF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2B3F394F-9155-4077-B8E5-1F718C3034DF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2B3F394F-9155-4077-B8E5-1F718C3034DF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2B3F394F-9155-4077-B8E5-1F718C3034DF}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BB7FBFB6-7376-43A2-A123-A9A0445BB6F9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BB7FBFB6-7376-43A2-A123-A9A0445BB6F9}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BB7FBFB6-7376-43A2-A123-A9A0445BB6F9}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BB7FBFB6-7376-43A2-A123-A9A0445BB6F9}.Release|Any CPU.Build.0 = Release|Any CPU
-		{A637E985-F742-4B3D-9310-B911EAAF65A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{A637E985-F742-4B3D-9310-B911EAAF65A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{A637E985-F742-4B3D-9310-B911EAAF65A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{A637E985-F742-4B3D-9310-B911EAAF65A5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AE256A7F-9E38-4586-8CB2-958680082DA8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AE256A7F-9E38-4586-8CB2-958680082DA8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AE256A7F-9E38-4586-8CB2-958680082DA8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AE256A7F-9E38-4586-8CB2-958680082DA8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{46AD03E7-B25F-4ACF-8615-3FE5B9A7EB89}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{46AD03E7-B25F-4ACF-8615-3FE5B9A7EB89}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{46AD03E7-B25F-4ACF-8615-3FE5B9A7EB89}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{46AD03E7-B25F-4ACF-8615-3FE5B9A7EB89}.Release|Any CPU.Build.0 = Release|Any CPU
+		{355C8174-309F-47F2-AE50-462C2081BCD0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{355C8174-309F-47F2-AE50-462C2081BCD0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{355C8174-309F-47F2-AE50-462C2081BCD0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{355C8174-309F-47F2-AE50-462C2081BCD0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

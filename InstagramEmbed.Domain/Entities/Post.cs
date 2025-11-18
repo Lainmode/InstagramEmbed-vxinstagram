@@ -1,4 +1,4 @@
-﻿namespace InstagramEmbedForDiscord.Models.Entities
+﻿namespace InstagramEmbed.Domain.Entities
 {
     public class Post
     {
