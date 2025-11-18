@@ -15,7 +15,7 @@
 
     if(contentUrl.Contains("rapidcdn"))
     {
-        contentUrl = $"{baseUrl}/VerifySnapsaveLink?postid={postId}&order={order}&rapidsaveUrl={contentUrl}";
+        contentUrl = $"{baseUrl}/offload/{postId}/{order}/";
     }
 
     // int width = ViewBag.Width ?? 0;
@@ -93,7 +93,7 @@
     <div class="row g-5 align-items-center w-100 justify-content-center mx-auto  p-4">
         @foreach (var item in files)
         {
-            var contentUrlForItem = $"{baseUrl}/VerifySnapsaveLink?postid={postId}&order={files.IndexOf(item)+1}&rapidsaveUrl={item.url}";
+            var contentUrlForItem = item.url;
             <div class="col-12 col-md-6 col-lg-4">
             <div class="card-body my-auto shadow px-0 py-0 bg-dark text-light border border-secondary pb-3" style="height:fit-content;flex:0;border-radius:1rem">
                 <div class="media-container w-100">

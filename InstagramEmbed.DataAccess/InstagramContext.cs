@@ -11,7 +11,7 @@ namespace InstagramEmbed.DataAccess
 {
     public class InstagramContext : DbContext
     {
-        private readonly string connectionString = "YOUR_CONNECTION_STRING";
+        private readonly string connectionString = "Server=localhost;Database=InstagramEmbed;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
         public DbSet<ActionLog> ActionLogs { get; set; }
         public DbSet<Post> Posts { get; set; }
         public DbSet<Media> Media { get; set; }
@@ -27,7 +27,7 @@ namespace InstagramEmbed.DataAccess
 
             optionsBuilder
                 // .UseLazyLoadingProxies() // Enable lazy loading
-                .UseSqlServer(connectionString);
+                .UseSqlServer(connectionString).UseLazyLoadingProxies();
 
             base.OnConfiguring(optionsBuilder);
         }

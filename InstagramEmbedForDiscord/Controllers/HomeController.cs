@@ -4,6 +4,8 @@ using InstagramEmbed.Domain.Entities;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.IdentityModel.Tokens;
 using Newtonsoft.Json;
@@ -36,9 +38,6 @@ namespace InstagramEmbedForDiscord.Controllers
             _proxyClient = factory.CreateClient("proxy");
             _logger = logger;
             _env = env;
-
-            _regularClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("Mozilla", "5.0"));
-
         }
 
         public override void OnActionExecuting(ActionExecutingContext context)
@@ -98,10 +97,15 @@ namespace InstagramEmbedForDiscord.Controllers
                 string? type = segments.Length > 1 ? segments[^2] : segments.FirstOrDefault(); // p, reel, etc.
                 string? username = segments.Length > 2 ? segments[0] : null;
 
+                ViewBag.PostId = id;
+                ViewBag.Order = orderIndex;
+
                 Post? post = Db.Posts.Find(id);
 
                 if (post != null)
                 {
+
+
                     await RefreshPostIfNeeded(post);
                     return await ProcessMedia(post, post.RawUrl, id, orderIndex, orderSpecified);
                 }
@@ -121,17 +125,10 @@ namespace InstagramEmbedForDiscord.Controllers
                 // Rebuild link
                 string link = $"https://instagram.com/{type}/{id}/";
 
-
-                ViewBag.PostId = id;
-                ViewBag.Order = orderIndex;
-
                 // Fetch SnapSave/Instagram API response
                 var instagramResponse = await GetSnapsaveResponse(link);
                 var media = instagramResponse.url?.data?.media;
                 InstagramPostDetails postDetails = new InstagramPostDetails() { Username = "NOT_SET" };
-
-
-
 
                 if (media == null || media.Count == 0)
                     return BadRequest("No media found.");
@@ -153,15 +150,16 @@ namespace InstagramEmbedForDiscord.Controllers
                     ShortCode = id,
                 };
 
+
                 foreach (var item in media)
                 {
                     post.Media.Add(new Media() { RapidSaveUrl = item.url, MediaType = item.type, ThumbnailUrl = item.thumbnail });
                 }
 
+                Db.Posts.Add(post);
+                Db.SaveChanges();
+
                 return await ProcessMedia(post, post.RawUrl, id, orderIndex, orderSpecified);
-
-
-
             }
             catch (Exception ex)
             {
@@ -177,6 +175,33 @@ namespace InstagramEmbedForDiscord.Controllers
         {
             return View();
         }
+
+        [Route("/offload/{id}/{order?}")]
+        public async Task<IActionResult> OffloadPost(string id, int? order)
+        {
+            int orderIndex = (order ?? 0);
+            if (orderIndex < 0) orderIndex = 0;
+
+
+            var post = Db.Posts.Find(id);
+
+            if (post == null)
+                return NotFound();
+
+            await RefreshPostIfNeeded(post);
+
+            var entry = post.Media.ElementAtOrDefault(orderIndex);
+
+            // if for some reason the order is out of bounds, which can only happen if order > length, take the last entry
+            entry ??= post.Media.LastOrDefault();
+            if (entry == null)
+                return NotFound();
+
+
+            return Redirect(entry.RapidSaveUrl);
+
+        }
+
 
         private async Task<IActionResult> ProcessMedia(Post dbPost, string link, string id, int orderIndex, bool orderSpecified)
         {
@@ -237,7 +262,7 @@ namespace InstagramEmbedForDiscord.Controllers
         private async Task<InstagramResponse> GetSnapsaveResponse(string link)
         {
 
-            HttpResponseMessage snapSaveResponse = await _regularClient.GetAsync("http://localhost:3200/igdl?url=" + link);
+            HttpResponseMessage snapSaveResponse = await _regularClient.GetAsync("http://alsauce.com:3200/igdl?url=" + link);
             string snapSaveResponseString = await snapSaveResponse.Content.ReadAsStringAsync();
             InstagramResponse instagramResponse = JsonConvert.DeserializeObject<InstagramResponse>(snapSaveResponseString)!;
 
