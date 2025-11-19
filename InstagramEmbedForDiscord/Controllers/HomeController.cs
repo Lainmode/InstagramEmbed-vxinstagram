@@ -12,6 +12,7 @@ using Newtonsoft.Json;
 using SkiaSharp;
 using System;
 using System.Diagnostics;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
@@ -28,14 +29,12 @@ namespace InstagramEmbedForDiscord.Controllers
         private readonly ILogger<HomeController> _logger;
         private readonly IWebHostEnvironment _env;
         private readonly HttpClient _regularClient;
-        private readonly HttpClient _proxyClient;
 
         private InstagramContext Db = new InstagramContext();
 
         public HomeController(ILogger<HomeController> logger, IWebHostEnvironment env, IHttpClientFactory factory)
         {
             _regularClient = factory.CreateClient("regular");
-            _proxyClient = factory.CreateClient("proxy");
             _logger = logger;
             _env = env;
         }
@@ -104,9 +103,9 @@ namespace InstagramEmbedForDiscord.Controllers
 
                 if (post != null)
                 {
-
-
                     await RefreshPostIfNeeded(post);
+
+                    ViewBag.Post = post;
                     return await ProcessMedia(post, post.RawUrl, id, orderIndex, orderSpecified);
                 }
 
@@ -136,7 +135,6 @@ namespace InstagramEmbedForDiscord.Controllers
                 if (Request.Host.Host.EndsWith("d.vxinstagram.com", StringComparison.OrdinalIgnoreCase))
                 {
                     postDetails = await GetPostDetails(id);
-                    ViewBag.PostDetails = postDetails;
                 }
 
                 post = new Post()
@@ -159,6 +157,7 @@ namespace InstagramEmbedForDiscord.Controllers
                 Db.Posts.Add(post);
                 Db.SaveChanges();
 
+                ViewBag.Post = post;
                 return await ProcessMedia(post, post.RawUrl, id, orderIndex, orderSpecified);
             }
             catch (Exception ex)
@@ -276,6 +275,18 @@ namespace InstagramEmbedForDiscord.Controllers
 
             if (response.IsSuccessStatusCode)
             {
+                if (Request.Host.Host.EndsWith("d.vxinstagram.com", StringComparison.OrdinalIgnoreCase) && post.AuthorUsername == "NOT_SET")
+                {
+                    InstagramPostDetails postDetails = await GetPostDetails(post.ShortCode);
+                    if (postDetails.Username == "NOT_SET") return;
+                    post.AuthorUsername = postDetails.Username;
+                    post.AuthorName = postDetails.Name;
+                    post.Caption = postDetails.Description;
+                    post.Comments = postDetails.Comments;
+                    post.Likes = postDetails.Likes;
+
+                    Db.SaveChanges();
+                }
                 return;
             }
 
@@ -295,16 +306,7 @@ namespace InstagramEmbedForDiscord.Controllers
                 post.Media.Add(new Media() { MediaType = item.type, RapidSaveUrl = item.url, ThumbnailUrl = item.thumbnail });
             }
 
-            if (Request.Host.Host.EndsWith("d.vxinstagram.com", StringComparison.OrdinalIgnoreCase) && post.AuthorUsername == "NOT_SET")
-            {
-                InstagramPostDetails postDetails = await GetPostDetails(post.ShortCode);
-                post.AuthorUsername = postDetails.Username;
-                post.AuthorName = postDetails.Name;
-                post.Caption = postDetails.Description;
-                post.Comments = postDetails.Comments;
-                post.Likes = postDetails.Likes;
 
-            }
 
             Db.SaveChanges();
         }
@@ -566,9 +568,12 @@ namespace InstagramEmbedForDiscord.Controllers
                 Avatar = user.GetProperty("profile_pic_url").GetString(),
                 Likes = item.TryGetProperty("like_count", out var likes) ? likes.GetInt32() : 0,
                 Comments = item.TryGetProperty("comment_count", out var comments) ? comments.GetInt32() : 0,
-                Description = item.TryGetProperty("caption", out var caption)
-                                ? caption.GetProperty("text").GetString()
-                                : string.Empty
+                Description =
+                    item.TryGetProperty("caption", out var caption) &&
+                    caption.ValueKind == JsonValueKind.Object &&
+                    caption.TryGetProperty("text", out var textProp)
+                        ? textProp.GetString() ?? string.Empty
+                        : string.Empty
             };
 
             return details;
@@ -577,26 +582,66 @@ namespace InstagramEmbedForDiscord.Controllers
 
         public async Task<string> FetchInstagramPostAsync(string shortcode)
         {
+            HttpClient _proxyClient = new HttpClient(handler: new HttpClientHandler()
+            {
+                Proxy = new WebProxy("http://geo.iproyal.com:12321")
+                {
+                    Credentials = new NetworkCredential(
+                    // your credentials
+                    )
+                },
+                UseProxy = true
+            });
+
+            _proxyClient.DefaultRequestHeaders.Add("Accept", "*/*");
+            _proxyClient.DefaultRequestHeaders.Add("Accept-Language", "en-US,en;q=0.9");
+            _proxyClient.DefaultRequestHeaders.Add("Origin", "https://www.instagram.com");
+            _proxyClient.DefaultRequestHeaders.Add("Priority", "u=1, i");
+            _proxyClient.DefaultRequestHeaders.Add("Sec-Fetch-Dest", "empty");
+            _proxyClient.DefaultRequestHeaders.Add("Sec-Fetch-Mode", "cors");
+            _proxyClient.DefaultRequestHeaders.Add("Sec-Fetch-Site", "same-origin");
+            _proxyClient.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36");
+
+            _proxyClient.DefaultRequestHeaders.Add("X-Asbd-Id", "129477");
+            _proxyClient.DefaultRequestHeaders.Add("X-Bloks-Version-Id", "e2004666934296f275a5c6b2c9477b63c80977c7cc0fd4b9867cb37e36092b68");
+            _proxyClient.DefaultRequestHeaders.Add("X-Fb-Friendly-Name", "PolarisPostActionLoadPostQueryQuery");
+            _proxyClient.DefaultRequestHeaders.Add("X-Ig-App-Id", "936619743392459");
+
+            //string csrfToken = string.Empty;
+
+            //for (int i = 0; i < 3; i++)
+            //{
+            //    var initialResponse = await _proxyClient.GetAsync("https://www.instagram.com");
+            //    var responseString = await initialResponse.Content.ReadAsStringAsync();
+
+            //    initialResponse.Headers.TryGetValues("Set-Cookie", out var cookies);
+            //    if (cookies != null)
+            //    {
+            //        csrfToken = cookies.Where(e => e.StartsWith("csrftoken")).First().Split(";").First();
+            //        break;
+            //    }
+
+            //    if (i == 2)
+            //    {
+            //        return string.Empty;
+            //    }
+
+            //}
+
+            Session session = Db.Sessions.OrderBy(r => Guid.NewGuid()).Take(1).First();
+            var csrfToken = session.CSRFToken;
+
+
             var request = new HttpRequestMessage(HttpMethod.Post, "https://www.instagram.com/graphql/query/");
 
-            // ----- HEADERS -----
-            request.Headers.Add("Cookie", "datr=45IbaZ3QVZBgzNu-BLmsYX0J; ig_did=914D191F-C8CB-44D3-AD9E-E674F758A22A; mid=aRuS4wALAAFs_EHSl6wD5LJMt_87; wd=1153x1065; csrftoken=zCdLU4qMl7i2wlrsVBgh22hJNXKPxPKp; ds_user_id=63534133086; sessionid=63534133086%3ATfFTdUiVbncPcn%3A22%3AAYiCzZK_RmKnXtObP-_9scXemJmMbH1r-sq2CUoQ8g; rur=\"ODN\\05463534133086\\0541794951304:01fe21ebd88ab6b4c8426d338050332c46485987446747e75b2abd419b2cdbda0c019d1d\"");
-            request.Headers.Add("Accept", "*/*");
-            request.Headers.Add("Accept-Language", "en-US,en;q=0.9");
-            request.Headers.Add("Origin", "https://www.instagram.com");
-            request.Headers.Add("Priority", "u=1, i");
-            request.Headers.Add("Sec-Fetch-Dest", "empty");
-            request.Headers.Add("Sec-Fetch-Mode", "cors");
-            request.Headers.Add("Sec-Fetch-Site", "same-origin");
-            request.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36");
 
-            request.Headers.Add("X-Asbd-Id", "129477");
-            request.Headers.Add("X-Bloks-Version-Id", "e2004666934296f275a5c6b2c9477b63c80977c7cc0fd4b9867cb37e36092b68");
-            request.Headers.Add("X-Fb-Friendly-Name", "PolarisPostActionLoadPostQueryQuery");
-            request.Headers.Add("X-Ig-App-Id", "936619743392459");
-            request.Headers.Add("X-Csrftoken", "zCdLU4qMl7i2wlrsVBgh22hJNXKPxPKp");
+            // ----- HEADERS -----
+            request.Headers.Add("Cookie", csrfToken);
+
+            //request.Headers.Add("X-Csrftoken", "zCdLU4qMl7i2wlrsVBgh22hJNXKPxPKp");
             request.Headers.Add("x-root-field-name", "xdt_api__v1__web__accounts__get_encrypted_credentials");
             request.Headers.Add("X-Fb-Lsd", "lvKgZqkPPmLKqUfKIBiMFa");
+            request.Headers.Add("X-Csrftoken", csrfToken.Split("=").Last());
             request.Headers.Add("Referer", $"https://www.instagram.com/p/{shortcode}");
 
 

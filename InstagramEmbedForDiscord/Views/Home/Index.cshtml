@@ -1,4 +1,5 @@
 ﻿@using InstagramEmbedForDiscord.Controllers;
+@using InstagramEmbed.Domain.Entities;
 @model string[]
 @{
     Layout = null;
@@ -21,9 +22,15 @@
     // int width = ViewBag.Width ?? 0;
     // int height = ViewBag.Height ?? 0;
 
-    InstagramPostDetails? postDetails = ViewBag.PostDetails;
+    Post post = ViewBag.Post;
 
     List<InstagramMedia> files = ViewBag.Files ?? new List<InstagramMedia>();
+
+    if (!Context.Request.Host.Host.EndsWith("d.vxinstagram.com", StringComparison.OrdinalIgnoreCase))
+    {
+        post.AuthorUsername = null;
+        post.Caption = null;
+    }
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -37,10 +44,10 @@
         <meta name="twitter:card" content="summary_large_image">
         <meta name="twitter:image" content="@contentUrl" />
 
-        @if(postDetails!=null)
+        @if (post?.Caption != null)
         {
             <meta property="og:description"
-                  content="@postDetails.Description">
+                  content="@post.Caption">
         }
   }
     else
@@ -57,17 +64,17 @@
     
      <meta property="og:site_name" content="vxinstagram" />
     <meta property="theme-color" content="#eb4034" />
-    <meta property="twitter:title" content="@postDetails?.Username" />
-    <meta property="twitter:site" content="@postDetails?.Username" />
-    <meta property="og:site_name" content="vxInstagram @($" ❤️ {postDetails?.Likes} 💬 {postDetails?.Comments}")"   />
+    <meta property="twitter:title" content="@post?.AuthorUsername" />
+    <meta property="twitter:site" content="@post?.AuthorUsername" />
+    <meta property="og:site_name" content="vxInstagram @($" ❤️ {post?.Likes} 💬 {post?.Comments}")" />
     <link rel="canonical" href="@url" />
     <meta property="og:url" content="@url" />
 
     
-    @if(postDetails!=null)
+    @if (post?.Caption != null)
     {
          <link rel="alternate" type="application/json+oembed"
-              href="@(baseUrl)/oembed?username=@postDetails.Username&desc=@(isPhoto?null:Uri.EscapeDataString(postDetails?.Description??""))&likescomments=@($" ❤️ {postDetails?.Likes} 💬 {postDetails?.Comments}")" />
+              href="@(baseUrl)/oembed?username=@post.AuthorUsername&desc=@(isPhoto?null:Uri.EscapeDataString(post?.Caption??""))&likescomments=@($" ❤️ {post?.Likes} 💬 {post?.Comments}")" />
         @*         <link rel="alternate" type="application/activity+json"
               href="@(baseUrl)/activity?link=@Uri.EscapeDataString(contentUrl)&username=@postDetails.Username&avatar=@postDetails.Avatar&likes=@postDetails.Likes&postId=@postId&mediaType=@(isPhoto ? "image" : "video")"/>
  *@     }

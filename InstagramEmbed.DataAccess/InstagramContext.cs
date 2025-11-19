@@ -11,10 +11,11 @@ namespace InstagramEmbed.DataAccess
 {
     public class InstagramContext : DbContext
     {
-        private readonly string connectionString = "Server=localhost;Database=InstagramEmbed;Trusted_Connection=True;TrustServerCertificate=True;MultipleActiveResultSets=true";
+        private readonly string connectionString = "Server=localhost;Database=InstagramEmbed.Web;Trusted_Connection=True;MultipleActiveResultSets=true";
         public DbSet<ActionLog> ActionLogs { get; set; }
         public DbSet<Post> Posts { get; set; }
         public DbSet<Media> Media { get; set; }
+        public DbSet<Session> Sessions { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
