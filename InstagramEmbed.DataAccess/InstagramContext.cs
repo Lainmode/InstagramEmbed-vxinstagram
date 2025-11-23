@@ -11,7 +11,7 @@ namespace InstagramEmbed.DataAccess
 {
     public class InstagramContext : DbContext
     {
-        private readonly string connectionString = "Server=localhost;Database=InstagramEmbed.Web;Trusted_Connection=True;MultipleActiveResultSets=true";
+        private readonly string connectionString = "YOUR_CONNECTION_STRING";
         public DbSet<ActionLog> ActionLogs { get; set; }
         public DbSet<Post> Posts { get; set; }
         public DbSet<Media> Media { get; set; }

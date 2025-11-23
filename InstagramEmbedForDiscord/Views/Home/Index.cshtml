@@ -38,6 +38,20 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    @if (post?.TrackName == "vxinstagram")
+    {
+        <link href='~/favicon.png' rel='icon' sizes='svgxsvg' type='image/svg+xml'>
+        <link href='~/favicon-32x32.png' rel='icon' sizes='32x32' type='image/png'>
+        <link href='~/favicon-16x16.png' rel='icon' sizes='16x16' type='image/png'>
+    }
+    else
+    {
+        <link href='~/favicon-note.png' rel='icon' sizes='svgxsvg' type='image/svg+xml'>
+        <link href='~/favicon-note-32x32.png' rel='icon' sizes='32x32' type='image/png'>
+        <link href='~/favicon-note-16x16.png' rel='icon' sizes='16x16' type='image/png'>
+    }
+
+
     @if(isPhoto)
     {
         <meta property="og:image" content="@contentUrl" />
@@ -62,7 +76,7 @@
 
     }
     
-     <meta property="og:site_name" content="vxinstagram" />
+     <meta property="og:site_name" content="@(post?.TrackName ?? "vxinstagram")" />
     <meta property="theme-color" content="#eb4034" />
     <meta property="twitter:title" content="@post?.AuthorUsername" />
     <meta property="twitter:site" content="@post?.AuthorUsername" />
@@ -73,11 +87,13 @@
     
     @if (post?.Caption != null)
     {
+        <meta property="og:title" content="@($"{post?.AuthorName} (@{post?.AuthorUsername})")" />
+
          <link rel="alternate" type="application/json+oembed"
               href="@(baseUrl)/oembed?username=@post.AuthorUsername&desc=@(isPhoto?null:Uri.EscapeDataString(post?.Caption??""))&likescomments=@($" ❤️ {post?.Likes} 💬 {post?.Comments}")" />
-        @*         <link rel="alternate" type="application/activity+json"
-              href="@(baseUrl)/activity?link=@Uri.EscapeDataString(contentUrl)&username=@postDetails.Username&avatar=@postDetails.Avatar&likes=@postDetails.Likes&postId=@postId&mediaType=@(isPhoto ? "image" : "video")"/>
- *@     }
+        <link rel="alternate" type="application/activity+json"
+              href="@(baseUrl)/users/username/statuses/@(Base64Url.Encode(System.Text.Encoding.UTF8.GetBytes(post.ShortCode+$"&{order}") ))" />
+     }
   
     
     <title>InstagramEmbed</title>
