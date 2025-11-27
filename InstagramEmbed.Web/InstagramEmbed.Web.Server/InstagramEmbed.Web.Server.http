@@ -1,0 +1,6 @@
+@InstagramEmbed.Web.Server_HostAddress = http://localhost:5191
+
+GET {{InstagramEmbed.Web.Server_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
