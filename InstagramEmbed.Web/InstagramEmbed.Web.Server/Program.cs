@@ -1,4 +1,8 @@
 
+using InstagramEmbed.DataAccess;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
+
 namespace InstagramEmbed.Web.Server
 {
     public class Program
@@ -12,7 +16,29 @@ namespace InstagramEmbed.Web.Server
             builder.Services.AddControllers();
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
-            builder.Services.AddSwaggerGen();
+            builder.Services.AddSwaggerGen(options =>
+            {
+                options.SwaggerDoc("v1", new OpenApiInfo { Title = "API", Version = "v1" });
+
+                options.AddServer(new OpenApiServer
+                {
+                    Url = "https://localhost:7103",
+                    Description = "Local dev server"
+                });
+            });
+
+
+            builder.Configuration
+                .AddJsonFile("appsettings.json")
+                .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true)
+                .AddEnvironmentVariables();
+
+            builder.Services.AddDbContext<InstagramContext>(options =>
+            {
+                options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnectionString"));
+                options.UseLazyLoadingProxies();
+            });
+
 
             var app = builder.Build();
 

@@ -365,3 +365,5 @@ FodyWeavers.xsd
 /InstagramEmbed.Web/appsettings.json
 /InstagramEmbedForDiscord/appsetings.Production.json
 /InstagramEmbedForDiscord/appsettings.Development.json
+/InstagramEmbed.Web/InstagramEmbed.Web.Server/appsettings.Development.json
+/InstagramEmbed.Web/InstagramEmbed.Web.Server/appsetings.Production.json
