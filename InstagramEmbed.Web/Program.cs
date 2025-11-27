@@ -1,3 +1,4 @@
+using InstagramEmbed.DataAccess;
 using InstagramEmbed.Web.Components;
 using InstagramEmbed.Web.Components.Account;
 using InstagramEmbed.Web.Data;
@@ -21,25 +22,27 @@ namespace InstagramEmbed.Web
             builder.Services.AddScoped<IdentityUserAccessor>();
             builder.Services.AddScoped<IdentityRedirectManager>();
             builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
+            builder.Services.AddHttpContextAccessor();
 
-            builder.Services.AddAuthentication(options =>
+            builder.Services.AddAuthentication("AuthCookie")
+                .AddCookie("AuthCookie", options =>
                 {
-                    options.DefaultScheme = IdentityConstants.ApplicationScheme;
-                    options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
-                })
-                .AddIdentityCookies();
+                    options.Cookie.HttpOnly = true;
+                    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+                    options.Cookie.SameSite = SameSiteMode.Strict;
+                    options.Cookie.Name = "SessionCookie";
+                    options.LoginPath = "/login";
+                    options.LogoutPath = "/logout";
+                }).AddCookie("theme", options => options.Cookie.Expiration = TimeSpan.FromDays(9999));
+
+            builder.Services.AddCascadingAuthenticationState();
+            builder.Services.AddAuthorization();
 
             var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
             builder.Services.AddDbContext<ApplicationDbContext>(options =>
                 options.UseSqlServer(connectionString));
             builder.Services.AddDatabaseDeveloperPageExceptionFilter();
-
-            builder.Services.AddIdentityCore<ApplicationUser>(options => options.SignIn.RequireConfirmedAccount = true)
-                .AddEntityFrameworkStores<ApplicationDbContext>()
-                .AddSignInManager()
-                .AddDefaultTokenProviders();
-
-            builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+            builder.Services.AddDbContext<InstagramContext>();
 
             var app = builder.Build();
 

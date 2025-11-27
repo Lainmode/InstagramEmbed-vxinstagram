@@ -362,3 +362,5 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /InstagramEmbedForDiscord/DAL/IGContext.cs
+/InstagramEmbed.Web/appsettings.json
+/InstagramEmbedForDiscord/appsetings.Production.json

@@ -1,4 +1,5 @@
 ﻿using Azure;
+using InstagramEmbed.Application.Helpers;
 using InstagramEmbed.DataAccess;
 using InstagramEmbed.Domain.Entities;
 using Microsoft.AspNetCore.Hosting;
@@ -32,15 +33,18 @@ namespace InstagramEmbedForDiscord.Controllers
         private readonly ILogger<HomeController> _logger;
         private readonly IWebHostEnvironment _env;
         private readonly HttpClient _regularClient;
+        private readonly IDbContextFactory<InstagramContext> _dbContextFactory;
 
         private InstagramContext Db;
 
-        public HomeController(ILogger<HomeController> logger, IWebHostEnvironment env, IHttpClientFactory factory, InstagramContext db)
+        public HomeController(ILogger<HomeController> logger, IWebHostEnvironment env, IHttpClientFactory factory, IDbContextFactory<InstagramContext> dbContextFactory)
         {
             _regularClient = factory.CreateClient("regular");
             _logger = logger;
             _env = env;
-            Db = db;
+            _dbContextFactory = dbContextFactory;
+
+            Db = _dbContextFactory.CreateDbContext();
         }
 
         public override void OnActionExecuting(ActionExecutingContext context)
@@ -50,7 +54,7 @@ namespace InstagramEmbedForDiscord.Controllers
 
             Task.Run(() =>
             {
-                var dbContext = new InstagramContext();
+                var db = _dbContextFactory.CreateDbContext();
 
                 var ipAddress = "127.0.0.1";
 
@@ -62,8 +66,8 @@ namespace InstagramEmbedForDiscord.Controllers
 
                 var log = ActionLog.CreateActionLog(httpContext.Request.Method, httpContext.Request.Path + httpContext.Request.QueryString, httpContext.Request.Headers["User-Agent"].ToString(), ipAddress);
 
-                dbContext.ActionLogs.Add(log);
-                dbContext.SaveChanges();
+                db.ActionLogs.Add(log);
+                db.SaveChanges();
             });
 
         }
@@ -75,6 +79,9 @@ namespace InstagramEmbedForDiscord.Controllers
             {
 
                 if (string.IsNullOrWhiteSpace(path))
+                    return BadRequest("Invalid Instagram path.");
+
+                if (path.Contains("VerifySnapsaveLink") || path.Contains(".jpg"))
                     return BadRequest("Invalid Instagram path.");
 
                 bool scrapeForPostInfomration = Request.Host.Host.EndsWith("d.vxinstagram.com", StringComparison.OrdinalIgnoreCase);
@@ -179,7 +186,7 @@ namespace InstagramEmbedForDiscord.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.ToString());
+                //Console.WriteLine(ex.ToString());
                 return View("Error");
             }
         }
@@ -212,6 +219,24 @@ namespace InstagramEmbedForDiscord.Controllers
             foreach (var item in postDetails.Media)
             {
                 newPost.Media.Add(item);
+            }
+
+            if (newPost.Media.IsNullOrEmpty())
+            {
+                Console.WriteLine($"Emtpy: {postDetails.json}");
+
+                var alternateInstagramResponse = await GetSnapsaveResponse(link);
+                var media = alternateInstagramResponse.url?.data?.media;
+                InstagramPostDetails alternativePostDetails = new InstagramPostDetails() { Username = "NOT_SET" };
+
+                if (media == null || media.Count == 0)
+                    throw new Exception(link);
+
+                newPost.DefaultThumbnailUrl = postDetails.VideoThumbnail;
+                foreach (var item in media)
+                {
+                    newPost.Media.Add(new Media() { RapidSaveUrl = item.url, MediaType = item.type, ThumbnailUrl = item.thumbnail });
+                }
             }
 
             return newPost;
@@ -423,14 +448,18 @@ namespace InstagramEmbedForDiscord.Controllers
 
         private async Task<InstagramPostDetails> GetPostDetails(string id, bool skipMediaExtraction = false)
         {
+            string response = "";
             try
             {
-                var response = await FetchInstagramPostAsync(id);
+                response = await FetchInstagramPostAsync(id);
                 var post = ExtractInstagramPostDetails(response, skipMediaExtraction);
                 return post;
             }
             catch (Exception e)
             {
+                Console.WriteLine(e.ToString());
+                Console.WriteLine(id);
+                Console.WriteLine(response);
                 return new InstagramPostDetails() { Username = "NOT_SET" };
             }
         }
@@ -805,7 +834,16 @@ namespace InstagramEmbedForDiscord.Controllers
             }
 
             details.TrackName = ExtractTrackName(item);
-            if (!skipMediaExtraction) details.Media = ExtractMedia(root);
+            if (!skipMediaExtraction)
+            {
+                details.Media = ExtractMedia(root);
+                if (details.Media.Count == 0)
+                {
+                    Console.WriteLine($"Media Not Found: {root.ToString()}");
+                }
+            }
+            details.json = root.ToString();
+            //Console.WriteLine(root.ToString());
 
             return details;
         }
@@ -958,6 +996,7 @@ namespace InstagramEmbedForDiscord.Controllers
         {
             // Pick 3 random sessions
             var sessions = Db.Sessions
+                .Where(e => e.ExpiresOn > DateTime.UtcNow)
                 .OrderBy(r => Guid.NewGuid())
                 .Take(3)
                 .ToList();
@@ -965,16 +1004,12 @@ namespace InstagramEmbedForDiscord.Controllers
             if (sessions.Count == 0)
                 return string.Empty;
 
-            string proxyUsername = "YOUR_PROXY_USERNAME";
-            string proxyPassword = "YOUR_PROXY_PASSWORD";
-
-
             // Create 3 proxy clients
             var clients = new[]
             {
-                CreateProxyClient("http://geo.iproyal.com:12321", proxyUsername, proxyPassword),
-                CreateProxyClient("http://geo.iproyal.com:12321", proxyUsername, proxyPassword),
-                CreateProxyClient("http://geo.iproyal.com:12321", proxyUsername, proxyPassword),
+                CreateProxyClient(),
+                CreateProxyClient(),
+                CreateProxyClient(),
             };
 
             var cts = new CancellationTokenSource();
@@ -1001,18 +1036,18 @@ namespace InstagramEmbedForDiscord.Controllers
                     return result.json;
                 }
             }
-
+            Console.WriteLine($"Failed All: {tasks.Select(e => e.Result).ToString()}");
             return string.Empty; // all failed
         }
 
-        private HttpClient CreateProxyClient(string proxyHost, string username, string password)
+        private HttpClient CreateProxyClient()
         {
             var handler = new HttpClientHandler
             {
-                Proxy = new WebProxy(proxyHost)
+                Proxy = Constants.ProxyInformation != null ? new WebProxy(Constants.ProxyInformation.Host)
                 {
-                    Credentials = new NetworkCredential(username, password)
-                },
+                    Credentials = new NetworkCredential(Constants.ProxyInformation.Username, (Constants.ProxyInformation.Password))
+                } : null,
                 UseProxy = true,
                 AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate
             };
@@ -1040,7 +1075,8 @@ namespace InstagramEmbedForDiscord.Controllers
 
         private async Task<(bool success, string json, Session session)> TryFetchGraphQLAsync(string shortcode, int sessionId, HttpClient client, CancellationToken ct)
         {
-            using var db = new InstagramContext();
+
+            using var db = _dbContextFactory.CreateDbContext();
 
             var session = db.Sessions.Find(sessionId);
             if (session == null) return (false, "", session);
@@ -1051,62 +1087,40 @@ namespace InstagramEmbedForDiscord.Controllers
 
                 var request = new HttpRequestMessage(HttpMethod.Post, "https://www.instagram.com/graphql/query/");
 
-                // ----- HEADERS -----
                 request.Headers.Add("Cookie", session.CSRFToken);
                 request.Headers.Add("x-root-field-name", "xdt_api__v1__web__accounts__get_encrypted_credentials");
                 request.Headers.Add("X-Fb-Lsd", "lvKgZqkPPmLKqUfKIBiMFa");
                 request.Headers.Add("X-Csrftoken", session.CSRFToken.Split("=").Last());
                 request.Headers.Add("Referer", $"https://www.instagram.com/p/{shortcode}");
 
-                // ----- BODY -----
-                var body = new Dictionary<string, string>
-        {
-            { "av", "kr65yh:qhc696:klxf8v" },
-            { "__d", "www" },
-            { "__user", "0" },
-            { "__a", "1" },
-            { "__req", "k" },
-            { "__hs", "19888.HYP:instagram_web_pkg.2.1..0.0" },
-            { "dpr", "2" },
-            { "__ccg", "UNKNOWN" },
-            { "__rev", "1014227545" },
-            { "__s", "trbjos:n8dn55:yev1rm" },
-            { "__hsi", "7573775717678450108" },
-            { "__dyn", "7xeUjG1mxu1syUbFp40NonwgU7SbzEdF8aUco2qwJw5ux609vCwjE1xoswaq0yE6ucw5Mx62G5UswoEcE7O2l0Fwqo31w9a9wtUd8-U2zxe2GewGw9a362W2K0zK5o4q3y1Sx-0iS2Sq2-azo7u3C2u2J0bS1LwTwKG1pg2fwxyo6O1FwlEcUed6goK2O4UrAwCAxW6Uf9EObzVU8U" },
-            { "__csr", "n2Yfg_5hcQAG5mPtfEzil8Wn-DpKGBXhdczlAhrK8uHBAGuKCJeCieLDyExenh68aQAKta8p8ShogKkF5yaUBqCpF9XHmmhoBXyBKbQp0HCwDjqoOepV8Tzk8xeXqAGFTVoCciGaCgvGUtVU-u5Vp801nrEkO0rC58xw41g0VW07ISyie2W1v7F0CwYwwwvEkw8K5cM0VC1dwdi0hCbc094w6MU1xE02lzw" },
-            { "__comet_req", "7" },
-            { "lsd", "lvKgZqkPPmLKqUfKIBiMFa" },
-            { "jazoest", "2882" },
-            { "__spin_r", "1014227545" },
-            { "__spin_b", "trunk" },
-            { "__spin_t", "1718406700" },
-            { "fb_api_caller_class", "RelayModern" },
-            { "fb_api_req_friendly_name", "PolarisPostActionLoadPostQueryQuery" },
-            { "variables", $"{{\"shortcode\":\"{shortcode}\"}}" },
-            { "server_timestamps", "true" },
-            { "doc_id", "25018359077785073" }
-        };
+                var body = Common.GetGraphQLScrapingBody(shortcode);
 
                 request.Content = new FormUrlEncodedContent(body);
 
-                // ----- SEND -----
                 var response = await client.SendAsync(request, ct);
                 var content = await response.Content.ReadAsStringAsync(ct);
 
                 // Reject HTML (challenge, login, 429, block)
-                if (content.StartsWith("<!DOCTYPE html") || content.Contains("not-logged-in"))
+                if (content.StartsWith("<!DOCTYPE html") || content.Contains("not-logged-in") || (content.Contains("\"status\":\"fail\"") && !content.Contains("Please wait a few minutes before you try again.")))
                 {
+                    Console.WriteLine($"Expired: {content}");
                     session.ExpireSession();
-                    Db.SaveChanges();
+                    db.SaveChanges();
                     return (false, "", session);
                 }
 
                 return (true, content, session);
             }
-            catch
+            catch (TaskCanceledException)
             {
+                return (false, "", session);
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine($"Expired With Exception: {e.ToString()}");
+
                 session.ExpireSession();
-                Db.SaveChanges();
+                db.SaveChanges();
                 return (false, "", session);
             }
         }
@@ -1160,6 +1174,8 @@ namespace InstagramEmbedForDiscord.Controllers
         public string? TrackName { get; set; }
 
         public List<Media> Media { get; set; } = [];
+
+        public string json { get; set; } = string.Empty;
     }
 
 
