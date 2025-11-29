@@ -1,16 +1,16 @@
-# ApiApi
+# AdminApi
 
 All URIs are relative to *https://localhost:7103*
 
 | Method | HTTP request | Description |
 |------------- | ------------- | -------------|
-| [**apiGetSessionsGet**](ApiApi.md#apigetsessionsget) | **GET** /Api/GetSessions |  |
+| [**adminGetSessionsGet**](AdminApi.md#admingetsessionsget) | **GET** /Admin/GetSessions |  |
 
 
 
-## apiGetSessionsGet
+## adminGetSessionsGet
 
-> Array&lt;Session&gt; apiGetSessionsGet()
+> SessionListApiResponse adminGetSessionsGet()
 
 
 
@@ -19,16 +19,16 @@ All URIs are relative to *https://localhost:7103*
 ```ts
 import {
   Configuration,
-  ApiApi,
+  AdminApi,
 } from '';
-import type { ApiGetSessionsGetRequest } from '';
+import type { AdminGetSessionsGetRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
-  const api = new ApiApi();
+  const api = new AdminApi();
 
   try {
-    const data = await api.apiGetSessionsGet();
+    const data = await api.adminGetSessionsGet();
     console.log(data);
   } catch (error) {
     console.error(error);
@@ -45,7 +45,7 @@ This endpoint does not need any parameter.
 
 ### Return type
 
-[**Array&lt;Session&gt;**](Session.md)
+[**SessionListApiResponse**](SessionListApiResponse.md)
 
 ### Authorization
 

@@ -1,8 +1,10 @@
-apis/ApiApi.ts
+apis/AdminApi.ts
 apis/index.ts
-docs/ApiApi.md
+docs/AdminApi.md
 docs/Session.md
+docs/SessionListApiResponse.md
 index.ts
 models/Session.ts
+models/SessionListApiResponse.ts
 models/index.ts
 runtime.ts

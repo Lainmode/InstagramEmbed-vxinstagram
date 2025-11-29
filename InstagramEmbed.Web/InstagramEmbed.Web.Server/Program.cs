@@ -27,6 +27,17 @@ namespace InstagramEmbed.Web.Server
                 });
             });
 
+            builder.Services.AddCors(options =>
+            {
+                options.AddPolicy("AllowOrigin",
+                    builder =>
+                    {
+                        builder.WithOrigins("http://localhost:5173")
+                               .AllowAnyHeader()
+                               .AllowAnyMethod();
+                    });
+            });
+
 
             builder.Configuration
                 .AddJsonFile("appsettings.json")
@@ -56,6 +67,7 @@ namespace InstagramEmbed.Web.Server
 
             app.UseAuthorization();
 
+            app.UseCors("AllowOrigin");
 
             app.MapControllers();
 

@@ -15,27 +15,27 @@
 
 import * as runtime from '../runtime';
 import type {
-  Session,
+  SessionListApiResponse,
 } from '../models/index';
 import {
-    SessionFromJSON,
-    SessionToJSON,
+    SessionListApiResponseFromJSON,
+    SessionListApiResponseToJSON,
 } from '../models/index';
 
 /**
  * 
  */
-export class ApiApi extends runtime.BaseAPI {
+export class AdminApi extends runtime.BaseAPI {
 
     /**
      */
-    async apiGetSessionsGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<Array<Session>>> {
+    async adminGetSessionsGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<SessionListApiResponse>> {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
 
 
-        let urlPath = `/Api/GetSessions`;
+        let urlPath = `/Admin/GetSessions`;
 
         const response = await this.request({
             path: urlPath,
@@ -44,13 +44,13 @@ export class ApiApi extends runtime.BaseAPI {
             query: queryParameters,
         }, initOverrides);
 
-        return new runtime.JSONApiResponse(response, (jsonValue) => jsonValue.map(SessionFromJSON));
+        return new runtime.JSONApiResponse(response, (jsonValue) => SessionListApiResponseFromJSON(jsonValue));
     }
 
     /**
      */
-    async apiGetSessionsGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<Session>> {
-        const response = await this.apiGetSessionsGetRaw(initOverrides);
+    async adminGetSessionsGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<SessionListApiResponse> {
+        const response = await this.adminGetSessionsGetRaw(initOverrides);
         return await response.value();
     }
 

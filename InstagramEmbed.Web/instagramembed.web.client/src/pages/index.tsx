@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 
-import "./App.css";
-import type { Session } from "./api";
-import { api } from "./lib/utils";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./components/ui/table";
+import type { Session } from "../api";
+import { api } from "../lib/utils";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 
-function App() {
+function Home() {
 	const [sessions, setSessions] = useState<Session[]>([]);
 
 	useEffect(() => {
-		api.apiGetSessionsGet().then((val) => setSessions(val));
+		api.adminGetSessionsGet().then((val) => {
+			if (val.data != null) setSessions(val.data);
+		});
 	}, []);
 
 	return (
@@ -37,4 +38,4 @@ function App() {
 	);
 }
 
-export default App;
+export default Home;
