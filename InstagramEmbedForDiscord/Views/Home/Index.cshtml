@@ -7,6 +7,7 @@
     string thumbnailUrl = Model[1];
     string url = Model[2];
     bool isPhoto = ViewBag.IsPhoto;
+    bool isTelegram = Context.Request.Headers.UserAgent.ToString().Contains("TelegramBot", StringComparison.OrdinalIgnoreCase);
 
     string postId = ViewBag.PostID;
     int order = ViewBag.Order ?? 1;
@@ -19,14 +20,30 @@
         contentUrl = $"{baseUrl}/offload/{postId}/{order}/";
     }
 
-    // int width = ViewBag.Width ?? 0;
-    // int height = ViewBag.Height ?? 0;
+    if (!isPhoto && !contentUrl.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
+    {
+        contentUrl = $"{contentUrl.TrimEnd('/')}.mp4";
+    }
 
     Post post = ViewBag.Post;
+    int width = post?.Width > 0 ? post.Width : 720;
+    int height = post?.Height > 0 ? post.Height : 1280;
+
+    if (width > 1920 || height > 1920)
+    {
+        width /= 2;
+        height /= 2;
+    }
+
+    if (width < 400 && height < 400)
+    {
+        width *= 2;
+        height *= 2;
+    }
 
     List<InstagramMedia> files = ViewBag.Files ?? new List<InstagramMedia>();
 
-    if (!Context.Request.Host.Host.EndsWith("d.vxinstagram.com", StringComparison.OrdinalIgnoreCase))
+    if (!Context.Request.Host.Host.StartsWith("d.", StringComparison.OrdinalIgnoreCase))
     {
         post.AuthorUsername = null;
         post.Caption = null;
@@ -68,11 +85,20 @@
     {
         <meta property="og:type" content="video.other" />
         <meta property="og:video" content="@contentUrl" />
-
         <meta property="og:video:secure_url" content="@contentUrl" />
         <meta property="og:video:type" content="video/mp4" />
-        <meta name="twitter:player" content="@url" />
-        <meta name="twitter:card" content="video.other" />
+        <meta property="og:video:width" content="@width" />
+        <meta property="og:video:height" content="@height" />
+
+        <meta name="twitter:player:stream" content="@contentUrl" />
+        <meta name="twitter:player:width" content="@width" />
+        <meta name="twitter:player:height" content="@height" />
+        <meta name="twitter:card" content="player" />
+
+        @if (!isTelegram)
+        {
+            <meta name="twitter:player" content="@url" />
+        }
 
     }
     

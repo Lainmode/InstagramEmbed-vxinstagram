@@ -77,7 +77,7 @@ namespace InstagramEmbedForDiscord.Controllers
                 if (string.IsNullOrWhiteSpace(path))
                     return BadRequest("Invalid Instagram path.");
 
-                bool scrapeForPostInfomration = Request.Host.Host.EndsWith("d.vxinstagram.com", StringComparison.OrdinalIgnoreCase);
+                bool scrapeForPostInfomration = Request.Host.Host.StartsWith("d.", StringComparison.OrdinalIgnoreCase);
 
                 var segments = path.Trim('/').Split('/');
 
@@ -261,6 +261,8 @@ namespace InstagramEmbedForDiscord.Controllers
 
         [Route("/offload/{id}/{order?}")]
         [Route("/offload/{id}")]
+        [Route("/offload/{id}.mp4")]
+        [Route("/offload/{id}/{order}.mp4")]
         public async Task<IActionResult> OffloadPost(string id, int? order, bool? thumbnail = false)
         {
             int orderIndex = (order ?? 0);
@@ -281,12 +283,44 @@ namespace InstagramEmbedForDiscord.Controllers
             if (entry == null)
                 return NotFound();
 
+            string targetUrl = entry.RapidSaveUrl;
             if (thumbnail ?? false)
             {
-                return Redirect(entry.MediaType == "video" ? post.DefaultThumbnailUrl ?? entry.ThumbnailUrl : entry.ThumbnailUrl);
+                targetUrl = entry.MediaType == "video" ? post.DefaultThumbnailUrl ?? entry.ThumbnailUrl : entry.ThumbnailUrl;
             }
 
-            return Redirect(entry.RapidSaveUrl);
+            var userAgent = Request.Headers.UserAgent.ToString();
+            if (userAgent.Contains("TelegramBot", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    using var proxyRequest = new HttpRequestMessage(HttpMethod.Get, targetUrl);
+                    proxyRequest.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+
+                    var proxyResponse = await _regularClient.SendAsync(proxyRequest, HttpCompletionOption.ResponseHeadersRead);
+                    if (proxyResponse.IsSuccessStatusCode)
+                    {
+                        var stream = await proxyResponse.Content.ReadAsStreamAsync();
+                        var contentType = proxyResponse.Content.Headers.ContentType?.MediaType;
+
+                        if (string.IsNullOrWhiteSpace(contentType))
+                        {
+                            contentType = entry.MediaType == "video" ? "video/mp4" : "application/octet-stream";
+                        }
+
+                        HttpContext.Response.RegisterForDispose(proxyResponse);
+                        return File(stream, contentType, enableRangeProcessing: true);
+                    }
+
+                    proxyResponse.Dispose();
+                }
+                catch
+                {
+                    // Fall back to redirect if Telegram proxying fails.
+                }
+            }
+
+            return Redirect(targetUrl);
 
         }
 
