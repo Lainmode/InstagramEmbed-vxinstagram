@@ -24,6 +24,46 @@ Unlike traditional solutions that rely on limited scraping techniques, Instagram
 
 For more information, visit [vxinstagram.com](https://vxinstagram.com)
 
+## Deployment
+
+### Requirements
+- Docker
+- A domain pointing to your server
+- A reverse proxy (Nginx, Caddy, etc.) for TLS
+
+### Run from Docker Hub
+
+Pull and run the pre-built image:
+
+```bash
+docker pull yourdockerhubusername/vxinstagram:latest
+
+docker run -d \
+  --name vxinstagram \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  yourdockerhubusername/vxinstagram:latest
+```
+
+Point your reverse proxy at port `8080`. 
+The app starts the snapsave Node.js service automatically on startup.
+
+### Build from Source
+
+Clone the repository and build the Docker image:
+
+```bash
+git clone https://github.com/Lainmode/InstagramEmbed-vxinstagram
+cd InstagramEmbed-vxinstagram/InstagramEmbedForDiscord
+docker build -t vxinstagram .
+docker run -d \
+  --name vxinstagram \
+  --restart unless-stopped \
+  -p 8080:8080 \
+  vxinstagram
+```
+
+
 ## How It Works
 
 1. User pastes an Instagram link with "vx" at the beginning (vxinstagram) (e.g., into Discord).
