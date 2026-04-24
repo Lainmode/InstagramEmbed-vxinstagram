@@ -20,7 +20,7 @@ Unlike traditional solutions that rely on limited scraping techniques, Instagram
 - ✅ Share (www.instagram.com/share/p).
 - ✅ Singular Media in Album (www.instagram.com/p/[hash]/1).
 - ~~✅ With or Without Post Details (vxinstagram.com / d.vxinstagram.com).~~
-- ❌ Direct view (post information, description, poster information, number of likes and comments) no longer supported.
+- ❌ Direct view (post information, description, author information, number of likes and comments) no longer supported.
 - ❌ User information, list of reels, list of posts, tags, and search queries.
 
 For more information, visit [vxinstagram.com](https://vxinstagram.com)
