@@ -36,13 +36,13 @@ For more information, visit [vxinstagram.com](https://vxinstagram.com)
 Pull and run the pre-built image:
 
 ```bash
-docker pull yourdockerhubusername/vxinstagram:latest
+docker pull alsauce/vxinstagram:latest
 
 docker run -d \
   --name vxinstagram \
   --restart unless-stopped \
   -p 8080:8080 \
-  yourdockerhubusername/vxinstagram:latest
+  alsauce/vxinstagram:latest
 ```
 
 Point your reverse proxy at port `8080`. 
