@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+**/node_modules/
+.git/
+.github/
+**/.vs/
+**/*.user
+.config/
+ 

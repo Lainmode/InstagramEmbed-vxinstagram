@@ -1,100 +1,100 @@
-﻿<div class="d-flex border-bottom border-secondary p-4 align-items-center justify-content-between shadow">
-    <div>
+﻿@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>vxinstagram – Instagram embeds for Discord &amp; Telegram</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <style>
+        body {
+            background: #0d0d0d;
+            color: #e8e8e8;
+        }
 
-        <div class="text-secondary">InstagramEmbed by <a href="https://github.com/Lainmode/InstagramEmbedForDiscord" target="_blank">Lainmode</a></div>
-        <div class="text-secondary">Twitter <a href="https://twitter.com/realalita" target="_blank">@@realAlita</a></div>
-    </div>
+        .brand {
+            color: #eb4034;
+            font-weight: 700;
+        }
 
-    <a target="_blank" href="https://www.buymeacoffee.com/alsauce"><img class="mb-2" style="height:2.5rem" src="https://img.buymeacoffee.com/button-api/?text=Buy me a coffee&emoji=☕&slug=alsauce&button_colour=954b89&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00" /></a>
+        .code {
+            background: #1a1a1a;
+            border-radius: .4rem;
+            padding: .1rem .4rem;
+            font-family: monospace;
+            font-size: .9em;
+        }
+    </style>
+</head>
+<body>
 
-</div>
-
-<div class="container p-0 py-5 px-2 p-md-5 ">
-    <h5>Supports</h5>
-    <div class="card border-0 bg-black border-0 shadow mx-auto mb-4">
-        <div class="card-body bg-black text-light border-start border-success border-5 rounded-3 p-4">
-            <div>✅ Posts (www.instagram.com/p)</div>
-            <div>✅ Reels (www.instagram.com/reel(s))</div>
-            <div>✅ Stories (www.instagram.com/stories/username)</div>
-            <div>✅ Albums (www.instagram.com/p/)</div>
-            <div>✅ User Posts (www.instagram.com/username/p)</div>
-            <div>✅ Share (www.instagram.com/share/p)</div>
-            <div>✅ Singular Media in Album (www.instagram.com/p/[hash]/1)</div>
-            <div>✅ With or Without Post Details (vxinstagram.com / d.vxinstagram.com)</div>
-        </div>
-    </div>
-
-            <h5>Basic Usage</h5>
-    <div class="card border-0 bg-black border-0 shadow mx-auto mb-4">
-        <div class="card-body bg-black text-light border-start border-primary border-5 rounded-3 p-4 d-flex flex-column gap-5">
-            <div class="bg-dark py-3 px-2 rounded-2">
-
-            <h6>Without Post Details</h6>
-            <hr />
-
-            <div>
-                www.instagram.com/reel/:hash/
-            </div>
-            <div class="mb-0 text-info d-flex"><p class="invisible">www.</p><h2 class="mb-0">↓</h2></div>
-            <div>
-                www.<span class="text-info fw-bold">vx</span>instagram.com/p/:hash/
-            </div>
-
-            </div>
-            <div class="bg-dark py-3 px-2 rounded-2" >
-            <h6 class="mb-0">With Post Details</h6>
-            <hr />
-
-            <div>
-                www.instagram.com/reel/:hash/
-            </div>
-            <div class="mb-0 text-info d-flex"><p class="invisible">www.d</p><h2 class="mb-0">↓</h2></div>
-            <div>
-                www.<span class="text-info fw-bold">d.vx</span>instagram.com/p/:hash/
-            </div>
+    <div class="d-flex border-bottom border-secondary p-4 align-items-center justify-content-between shadow">
+        <div>
+            <span class="brand fs-4">vxinstagram</span>
+            <div class="text-secondary small">
+                by <a class="text-secondary" href="https://github.com/Lainmode/InstagramEmbedForDiscord" target="_blank">Lainmode</a>
             </div>
         </div>
+        <a target="_blank" href="https://www.buymeacoffee.com/alsauce">
+            <img style="height:2.5rem"
+                 src="https://img.buymeacoffee.com/button-api/?text=Buy+me+a+coffee&emoji=☕&slug=alsauce&button_colour=954b89&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00" />
+        </a>
     </div>
 
+    <div class="container py-5 px-3 px-md-5" style="max-width:860px">
 
-    <h5>Media Index</h5>
-    <div class="card border-0 bg-black border-0 shadow mx-auto mb-4">
-        <div class="card-body bg-black text-light border-start border-primary border-5 rounded-3 p-4 d-flex flex-column gap-5">
-          
-            <div class="bg-dark py-3 px-2 rounded-2">
-                <h6>Retrieves a specific media item from an album</h6>
-
-                <hr />
-
-                <div>
-                    www.vxinstagram.com/p/:hash/
-                </div>
-    
-                <div class="mb-0 text-info d-flex"><p class="invisible">www.vxinstagram.com/p/:hash/</p><h2 class="mb-0">↓</h2></div>
-                <div>
-                    www.vxinstagram.com/p/:hash<span class="text-info fw-bold">/1/</span>
-                </div>
+        <h5 class="mb-3">Supports</h5>
+        <div class="card border-0 shadow mb-4" style="background:#111; border-left: 4px solid #28a745 !important;">
+            <div class="card-body border-start border-success border-5 rounded-3">
+                <div>✅ Posts &nbsp;<span class="code">instagram.com/p/…</span></div>
+                <div>✅ Reels &nbsp;<span class="code">instagram.com/reel/…</span></div>
+                <div>✅ Stories &nbsp;<span class="code">instagram.com/stories/username/…</span></div>
+                <div>✅ Albums (multi-image / multi-video carousels)</div>
+                <div>✅ User Posts &nbsp;<span class="code">instagram.com/username/p/…</span></div>
+                <div>✅ Share links &nbsp;<span class="code">instagram.com/share/…</span></div>
+                <div>✅ Single album item via index <span class="code">/p/HASH/2</span></div>
             </div>
+        </div>
 
-            <div class="bg-dark py-3 px-2 rounded-2">
-                <h6>Retrieves a specific media item from stories</h6>
-
-                <hr />
-
-  
-                <div>
-                    www.vxinstagram.com/stories/username/:hash/
+        <h5 class="mb-3">Basic Usage</h5>
+        <div class="card border-0 shadow mb-4" style="background:#111;">
+            <div class="card-body border-start border-primary border-5 rounded-3 d-flex flex-column gap-4">
+                <div class="bg-black rounded-2 p-3">
+                    <h6>Embed a post</h6>
+                    <hr class="border-secondary" />
+                    <div><span class="code">instagram.com/reel/HASH/</span></div>
+                    <div class="text-info fs-4">↓</div>
+                    <div><span class="code"><strong class="text-info">vx</strong>instagram.com/reel/HASH/</span></div>
+                    <p class="text-secondary small mt-2 mb-0">
+                        Replace <strong>www.instagram.com</strong> with <strong class="text-info">vxinstagram.com</strong>.
+                        The embed works on Discord, Telegram, and any Open Graph-aware platform.
+                    </p>
                 </div>
-                <div class="mb-0 text-info d-flex"><p class="invisible">www.vxinstagram.com/stories/username/:hash/</p><h2 class="mb-0">↓</h2></div>
-                <div>
-                    www.vxinstagram.com/stories/username/:hash<span class="text-info fw-bold">/1/</span>
+                <div class="bg-black rounded-2 p-3">
+                    <h6>Donate prompt variant <span class="badge bg-secondary ms-1">d.vx</span></h6>
+                    <hr class="border-secondary" />
+                    <div><span class="code"><strong class="text-info">d.vx</strong>instagram.com/reel/HASH/</span></div>
+                    <p class="text-secondary small mt-2 mb-0">
+                        Identical embed — occasionally shows a "donate to keep the service running" message
+                        in the embed provider field instead of the usual service name.
+                    </p>
                 </div>
             </div>
         </div>
+
+        <h5 class="mb-3">Media Index (Albums)</h5>
+        <div class="card border-0 shadow mb-4" style="background:#111;">
+            <div class="card-body border-start border-primary border-5 rounded-3">
+                <div class="bg-black rounded-2 p-3">
+                    <div><span class="code">vxinstagram.com/p/HASH/</span> → whole album</div>
+                    <div class="text-info fs-4">↓</div>
+                    <div><span class="code">vxinstagram.com/p/HASH/<strong class="text-info">2</strong>/</span> → second item only</div>
+                </div>
+            </div>
+        </div>
+
     </div>
-
-
-   
-  
-</div>
-
+</body>
+</html>

@@ -1,0 +1,25 @@
+services:
+  vxinstagram:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: vxinstagram:latest
+    container_name: vxinstagram
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      SnapSave__Port: 3200
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
