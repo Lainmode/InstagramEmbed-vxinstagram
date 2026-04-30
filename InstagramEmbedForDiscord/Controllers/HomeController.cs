@@ -2,6 +2,8 @@
 using InstagramEmbed.Application.Services;
 
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Extensions.Options;
 using System.Text;
 using System.Text.Json;
 
@@ -13,19 +15,47 @@ public sealed class HomeController : Controller
     private readonly DonateMessageService _donate;
     private readonly HttpClient _http;
     private readonly ILogger<HomeController> _logger;
+    private readonly DonationSettings _settings;
+
+
+
 
     public HomeController(PostCacheService posts, DonateMessageService donate,
-        IHttpClientFactory factory, ILogger<HomeController> logger)
+        IHttpClientFactory factory, ILogger<HomeController> logger, IOptions<DonationSettings> options)
     {
         _posts = posts;
         _donate = donate;
         _http = factory.CreateClient("regular");
         _logger = logger;
+        _settings = options.Value;
+
+    }
+
+    public override void OnActionExecuting(ActionExecutingContext context)
+    {
+        ViewBag.DonationCurrent = _settings.Current;
+        ViewBag.DonationTarget = _settings.Target;
+        base.OnActionExecuting(context);
     }
 
 
     [Route("/")]
     public IActionResult HomePage() => View();
+
+    [Route("/setdonationvariables")]
+    [HttpGet]
+    public IActionResult SetDonationVariables([FromQuery] string pw, [FromQuery] int current, [FromQuery] int? target)
+    {
+        if (pw != _settings.Password)
+        {
+            return BadRequest();
+        }
+
+        _settings.Current = current;
+        _settings.Target = target ?? _settings.Target;
+
+        return RedirectToAction("HomePage");
+    }
 
 
     [Route("{**path}")]

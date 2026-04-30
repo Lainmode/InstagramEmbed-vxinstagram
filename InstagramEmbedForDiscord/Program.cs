@@ -31,6 +31,14 @@ builder.Services.AddSingleton<DonateMessageService>();
 
 builder.Services.AddHostedService<SnapSaveProcessService>();
 
+builder.Services.Configure<DonationSettings>(options =>
+{
+    options.Password = builder.Configuration.GetValue("APP_PASSWORD", "password") ?? "password";
+    options.Current = builder.Configuration.GetValue("DONATION_CURRENT", 0);
+    options.Target = builder.Configuration.GetValue("DONATION_TARGET", 100);
+});
+
+
 var app = builder.Build();
 
 app.UseStaticFiles();
