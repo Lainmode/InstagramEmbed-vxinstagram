@@ -12,6 +12,9 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       SnapSave__Port: 3200
+      APP_PASSWORD: password
+      DONATION_CURRENT: 0
+      DONATION_TARGET: 100
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
       interval: 30s

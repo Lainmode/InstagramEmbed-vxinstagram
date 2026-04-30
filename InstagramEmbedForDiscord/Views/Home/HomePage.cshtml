@@ -1,5 +1,6 @@
 ﻿@{
     Layout = null;
+
 }
 <!DOCTYPE html>
 <html lang="en">
@@ -47,24 +48,7 @@
 
 
 
-        <div class="card border-0 shadow mb-4" style="background:#111;">
-            <div class="card-body  border border-warning rounded-3 border-5">
-                <h4 class="text-warning">Please read</h4>
-                <h6>
-                    vxInstagram runs on my private server. Handling hundreds of thousands of monthly requests is challenging to maintain as a college student. To keep the service alive, please consider donating if you have the means. Thank you.
-                </h6>
-
-                <h5 class="mb-0 fw-bolder text-warning">92€ raised this month</h5>
-                <h6 class="text-muted">Out of 100€</h6>
-                <div class="progress rounded-pill border-0 mb-3" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="height:1rem;">
-                    <div class="progress-bar bg-warning border-0 d-flex align-items-center justify-content-center" style="width: 92%">
-                    </div>
-                </div>
-
-                <a class="btn btn-warning rounded-pill fw-bold" href="https://buymeacoffee.com/alsauce" target="_blank">Buy Me A Coffee</a>
-
-            </div>
-        </div>
+        <partial name="~/Views/Home/_Partial/DonationMessage.cshtml"></partial>
 
 
         <h5 class="mb-3">Supports</h5>
