@@ -54,7 +54,7 @@ public sealed class InstaDownCacheService
         {
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
 
-            var requestUrl = $"{_apiBase}/vx/scrape?url={Uri.EscapeDataString(instagramUrl)}";
+            var requestUrl = $"{_apiBase}/vx/scrape?url={Uri.EscapeDataString(instagramUrl)}&raw=true";
             using var req = new HttpRequestMessage(HttpMethod.Get, requestUrl);
             req.Headers.TryAddWithoutValidation("X-Api-Key", _apiKey);
 
