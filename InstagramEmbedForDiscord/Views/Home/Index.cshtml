@@ -26,6 +26,7 @@
 
     List<CachedMedia> files = ViewBag.Files as List<CachedMedia> ?? [];
     bool isMultiMedia = files.Count > 1;
+    bool isInstaDownLink = ViewBag.IsInstaDownLink ?? false;
 
     // d.vx → expose caption/author in embed; vx → anonymous
     bool showDetails = Context.Request.Host.Host.StartsWith("d.", StringComparison.OrdinalIgnoreCase);
@@ -43,7 +44,7 @@
     string activityContext = Base64Url.Encode(System.Text.Encoding.UTF8.GetBytes(activityPayload));
 
 
-    bool emitActivityLink = isMultiMedia;
+    bool emitActivityLink = isMultiMedia || isInstaDownLink;
     string? maybeDonate = ViewBag.MaybeDonate;
 }
 

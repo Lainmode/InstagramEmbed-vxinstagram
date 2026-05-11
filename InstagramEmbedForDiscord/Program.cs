@@ -28,7 +28,12 @@ builder.Services.AddHttpClient("snapsave", c =>
 
 builder.Services.AddSingleton<PostCacheService>();
 builder.Services.AddSingleton<DonateMessageService>();
+builder.Services.AddSingleton<InstaDownCacheService>();
 
+builder.Services.AddHttpClient("instadown", c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(20);
+});
 builder.Services.AddHostedService<SnapSaveProcessService>();
 
 builder.Services.Configure<DonationSettings>(options =>

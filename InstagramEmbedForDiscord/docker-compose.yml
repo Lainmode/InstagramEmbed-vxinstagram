@@ -12,6 +12,7 @@ services:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_URLS: http://+:8080
       SnapSave__Port: 3200
+      InstaDown__ApiKey: change-me-d5dbdd0a
       APP_PASSWORD: password
       DONATION_CURRENT: 0
       DONATION_TARGET: 100
