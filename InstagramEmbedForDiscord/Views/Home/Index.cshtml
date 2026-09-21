@@ -1,207 +1,88 @@
-﻿@using InstagramEmbed.Application.Models
-@using InstagramEmbed.Controllers
-@model string[]
+@using InstagramEmbed.Application.Models
+@using InstagramEmbed.Application.Services
+@inject InstanceSettings Instance
+@model EmbedPage
 @{
     Layout = null;
-    string contentUrl = Model[0];
-    string? thumbnailUrl = Model[1];
-    string igUrl = Model[2];
-    bool isPhoto = ViewBag.IsPhoto;
-    bool isTelegram = Context.Request.Headers.UserAgent.ToString()
-                               .Contains("TelegramBot", StringComparison.OrdinalIgnoreCase);
-
-    string cacheId = ViewBag.PostId ?? "";
-    int order = ViewBag.Order ?? 0;
-    var baseUrl = $"https://{Context.Request.Host}";
-
-    if (!isPhoto && !contentUrl.EndsWith(".mp4", StringComparison.OrdinalIgnoreCase))
-        contentUrl = $"{contentUrl.TrimEnd('/')}.mp4";
-
-    CachedPost? post = ViewBag.Post as CachedPost;
-    int width = post?.Width > 0 ? post!.Width : 720;
-    int height = post?.Height > 0 ? post!.Height : 1280;
-
-    if (width > 1920 || height > 1920) { width /= 2; height /= 2; }
-    if (width < 400 && height < 400) { width *= 2; height *= 2; }
-
-    List<CachedMedia> files = ViewBag.Files as List<CachedMedia> ?? [];
-    bool isMultiMedia = files.Count > 1;
-
-    // d.vx → expose caption/author in embed; vx → anonymous
-    bool showDetails = Context.Request.Host.Host.StartsWith("d.", StringComparison.OrdinalIgnoreCase);
-    string? caption = showDetails ? post?.Caption : null;
-    string? username = showDetails ? post?.AuthorUsername : null;
-    string? fullName = showDetails ? post?.AuthorName : null;
-    string trackName = post?.TrackName ?? "vxinstagram";
-
-    string oembedDesc = isPhoto ? "" : Uri.EscapeDataString(caption ?? "");
-    string likesComments = showDetails && (post?.Likes > 0 || post?.Comments > 0)
-        ? $" ❤️ {post?.Likes} 💬 {post?.Comments}" : "";
-
-
-    string activityPayload = $"{cacheId}&{order}&{igUrl}";
-    string activityContext = Base64Url.Encode(System.Text.Encoding.UTF8.GetBytes(activityPayload));
-
-
-    bool emitActivityLink = isMultiMedia;
-    string? maybeDonate = ViewBag.MaybeDonate;
+    var selected = Model.Order ?? 0;
+    var media = Model.Post.Media[selected];
+    var original = $"https://www.instagram.com/{Model.Kind}/{Model.Id}/";
+    var mediaBase = $"{Instance.BaseUrl}/media/{Model.Kind}/{Model.Id}";
+    var contentUrl = $"{mediaBase}/{selected}";
+    var title = Instance.ShowDetails ? Model.Post.AuthorUsername : Instance.Name;
+    var caption = Instance.ShowDetails ? Model.Post.Caption : null;
+    var files = Model.Order.HasValue ? Model.Post.Media.Skip(selected).Take(1) : Model.Post.Media;
 }
-
-@if (isTelegram)
-{
-
-    <!DOCTYPE html>
-    <html>
-    <head>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@title - @Instance.Name</title>
+    <meta property="og:title" content="@title" />
+    <meta property="og:site_name" content="@Instance.Name" />
+    <meta property="og:url" content="@original" />
+    <link rel="canonical" href="@original" />
+    <link rel="icon" href="/icon.svg" />
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.min.css" />
+    @if (!string.IsNullOrEmpty(caption))
+    {
+        <meta property="og:description" content="@caption" />
+    }
+    @if (media.MediaType == "video")
+    {
         <meta property="og:type" content="video.other" />
-        <meta property="og:title" content="vxinstagram" />
-        <meta property="og:image" content="@contentUrl" />
-
         <meta property="og:video" content="@contentUrl" />
         <meta property="og:video:secure_url" content="@contentUrl" />
         <meta property="og:video:type" content="video/mp4" />
-        <meta property="og:video:width" content="720" />
-        <meta property="og:video:height" content="1280" />
-    </head>
-    <body>
-    </body>
-    </html>
-}
-else
-{
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-
-        @* Favicon: music note icon for reels with a track *@
-        @if (trackName == "vxinstagram")
+        <meta name="twitter:card" content="player" />
+        <meta name="twitter:player:stream" content="@contentUrl" />
+        <meta name="twitter:player:stream:content_type" content="video/mp4" />
+        @if (media.Width > 0 && media.Height > 0)
         {
-            <link href="~/favicon.png" rel="icon" type="image/png" sizes="any">
-            <link href="~/favicon-32x32.png" rel="icon" type="image/png" sizes="32x32">
-            <link href="~/favicon-16x16.png" rel="icon" type="image/png" sizes="16x16">
+            <meta property="og:video:width" content="@media.Width" />
+            <meta property="og:video:height" content="@media.Height" />
         }
-        else
+    }
+    else
+    {
+        <meta name="twitter:card" content="summary_large_image" />
+    }
+    @if (!string.IsNullOrEmpty(media.ThumbnailUrl))
+    {
+        <meta property="og:image" content="@(contentUrl)?thumbnail=true" />
+        <meta name="twitter:image" content="@(contentUrl)?thumbnail=true" />
+    }
+    <link rel="alternate" type="application/json+oembed"
+          href="@(Instance.BaseUrl)/oembed?username=@Uri.EscapeDataString(title)" />
+    @if (!Model.Order.HasValue && Model.Post.Media.Count > 1)
+    {
+        <link rel="alternate" type="application/activity+json"
+              href="@(Instance.BaseUrl)/users/instagram/statuses/@(Model.Kind).@(Model.Id)" />
+    }
+</head>
+<body class="bg-dark text-light">
+    <main class="container py-4">
+        <h1 class="h4">@Instance.Name</h1>
+        <a href="@original">View original on Instagram</a>
+        @if (!string.IsNullOrEmpty(caption)) { <p class="mt-3">@caption</p> }
+        <div class="row g-4 mt-2">
+        @foreach (var item in files)
         {
-            <link href="~/favicon-note.png" rel="icon" type="image/png" sizes="any">
-            <link href="~/favicon-note-32x32.png" rel="icon" type="image/png" sizes="32x32">
-            <link href="~/favicon-note-16x16.png" rel="icon" type="image/png" sizes="16x16">
-        }
-
-        @* ── Open Graph / Twitter card ── *@
-        @if (isPhoto)
-        {
-            <meta property="og:image" content="@contentUrl" />
-            <meta name="twitter:card" content="summary_large_image" />
-            <meta name="twitter:image" content="@contentUrl" />
-            @if (caption != null)
-            {
-                <meta property="og:description" content="@caption" />
-            }
-        }
-        else
-        {
-            <meta property="og:type" content="video.other" />
-            <meta property="og:video" content="@contentUrl" />
-            <meta property="og:video:secure_url" content="@contentUrl" />
-            <meta property="og:video:type" content="video/mp4" />
-            <meta property="og:video:width" content="@width" />
-            <meta property="og:video:height" content="@height" />
-            <meta name="twitter:card" content="player" />
-            if (isTelegram && thumbnailUrl != null)
-            {
-                <meta property="og:image" content="@thumbnailUrl" />
-            }
-            <meta name="twitter:player:stream" content="@contentUrl" />
-            <meta name="twitter:player:stream:content_type" content="video/mp4" />
-            <meta name="twitter:player:width" content="@width" />
-            <meta name="twitter:player:height" content="@height" />
-            @if (!isTelegram)
-            {
-                <meta name="twitter:player" content="@igUrl" />
-            }
-        }
-
-        <meta property="og:site_name" content="@trackName" />
-        <meta property="theme-color" content="#eb4034" />
-        <meta property="og:url" content="@igUrl" />
-        <link rel="canonical" href="@igUrl" />
-
-        @if (caption != null && username != null)
-        {
-            <meta property="og:title" content="@($"{fullName} (@{username})")" />
-            <meta property="og:description" content="@caption" />
-            <meta property="twitter:title" content="@($"{fullName} (@{username})")" />
-            <meta property="twitter:site" content="@username" />
-            <meta property="twitter:creator" content="@username" />
-        }
-        else if (isTelegram)
-        {
-            <meta property="og:title" content="vxinstagram" />
-            <meta property="twitter:title" content="vxinstagram" />
-        }
-
-
-        @if (emitActivityLink || maybeDonate != null)
-        {
-            <link rel="alternate" type="application/json+oembed"
-                  href="@(baseUrl)/oembed?username=@(username ?? "instagram")&desc=@oembedDesc&likescomments=@Uri.EscapeDataString(likesComments)&donateMessage=@maybeDonate" />
-        }
-        @* activity+json only for multi-media posts — triggers Discord's image grid *@
-        @if (emitActivityLink || isTelegram)
-        {
-            <link rel="alternate" type="application/activity+json"
-                  href="@(baseUrl)/users/username/statuses/@activityContext" />
-        }
-
-        <title>vxinstagram</title>
-    </head>
-    <body class="bg-dark text-light">
-
-        <div class="d-flex border-bottom border-secondary p-4 align-items-center justify-content-between shadow">
-            <div>
-                <div class="text-secondary">
-                    InstagramEmbed by
-                    <a href="https://github.com/Lainmode/InstagramEmbedForDiscord" target="_blank">Lainmode</a>
-                </div>
+            var index = Model.Post.Media.IndexOf(item);
+            <div class="col-12 col-md-6">
+                @if (item.MediaType == "video")
+                {
+                    <video controls preload="none" class="w-100" style="max-height:80vh;object-fit:contain"
+                           poster="@(mediaBase)/@index?thumbnail=true" src="@(mediaBase)/@index"></video>
+                }
+                else
+                {
+                    <img class="w-100" style="max-height:80vh;object-fit:contain" src="@(mediaBase)/@index" alt="Instagram post" />
+                }
             </div>
-            <a target="_blank" href="https://www.buymeacoffee.com/alsauce">
-                <img class="mb-2" style="height:2.5rem"
-                     src="https://img.buymeacoffee.com/button-api/?text=Buy+me+a+coffee&emoji=☕&slug=alsauce&button_colour=954b89&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00" />
-            </a>
+        }
         </div>
-
-        <div class="container mt-5" style=" max-width:860px">
-            <partial name="~/Views/Home/_Partial/DonationMessage.cshtml"></partial>
-        </div>
-
-        <div class="row g-4 align-items-start w-100 justify-content-center mx-auto p-4">
-            @foreach (var item in files)
-            {
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="card border-secondary shadow rounded-3 bg-dark text-light overflow-hidden">
-                        @if (item.MediaType == "video")
-                        {
-                            <video class="w-100" style="aspect-ratio:5/6; object-fit:cover;" controls>
-                                <source src="@item.Url" type="video/mp4" />
-                                Your browser does not support the video tag.
-                            </video>
-                        }
-                        else
-                        {
-                            <img src="@item.Url" class="w-100"
-                                 style="aspect-ratio:5/6; object-fit:cover;" alt="Instagram post" />
-                        }
-                        <div class="d-flex flex-column gap-2 p-3">
-                            <a class="btn btn-success" href="@item.Url" download>Download</a>
-                            <a class="btn btn-primary" href="@igUrl" target="_blank">View Original</a>
-                        </div>
-                    </div>
-                </div>
-            }
-        </div>
-    </body>
-    </html>
-}
+    </main>
+</body>
+</html>

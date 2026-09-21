@@ -1,28 +1,18 @@
+# Local-only smoke testing. Production overlay: ../deploy/compose.vxinstagram.yml
 services:
   vxinstagram:
     build:
-      context: .
+      context: ..
       dockerfile: Dockerfile
-    image: vxinstagram:latest
-    container_name: vxinstagram
+    image: vxinstagram:local
     restart: unless-stopped
+    init: true
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
-      ASPNETCORE_ENVIRONMENT: Production
-      ASPNETCORE_URLS: http://+:8080
-      SnapSave__Port: 3200
-      APP_PASSWORD: password
-      DONATION_CURRENT: 0
-      DONATION_TARGET: 100
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
+      Instance__PublicUrl: http://localhost:8080
     logging:
-      driver: "json-file"
+      driver: json-file
       options:
         max-size: "10m"
-        max-file: "5"
+        max-file: "3"

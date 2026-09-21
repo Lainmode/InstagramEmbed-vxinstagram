@@ -1,0 +1,82 @@
+name: Test and publish container
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - run: dotnet publish InstagramEmbedForDiscord/InstagramEmbed.Application.csproj -c Release -o work/publish
+      - run: python tests/integration.py work/publish/InstagramEmbed.Application.dll
+      - name: Build and check actual runtime dependencies
+        run: |
+          docker build --pull -t vxinstagram:test .
+          docker run --rm --entrypoint /opt/extractor/bin/python vxinstagram:test -c 'import yt_dlp, instaloader; from importlib.metadata import version; print(version("yt-dlp"), version("instaloader"))'
+          docker run --rm --entrypoint /opt/extractor/bin/pip vxinstagram:test check
+          docker run --rm --entrypoint /opt/extractor/bin/python vxinstagram:test -c 'from instaloader import Instaloader; loader = Instaloader(quiet=True, download_pictures=False, download_videos=False, download_video_thumbnails=False, download_geotags=False, download_comments=False, save_metadata=False, max_connection_attempts=1, request_timeout=10); loader.close()'
+          docker run --rm --entrypoint /opt/extractor/bin/python -v "$PWD/tests:/tests:ro" vxinstagram:test -m unittest discover -s /tests -p 'test_*.py' -v
+          docker run --rm --entrypoint test vxinstagram:test -f /app/LICENSE
+      - name: Smoke test hardened container
+        run: |
+          docker run -d --name vx-smoke --read-only --tmpfs /tmp:size=16m --cap-drop ALL --security-opt no-new-privileges:true -p 127.0.0.1:8080:8080 vxinstagram:test
+          trap 'docker logs vx-smoke; docker rm -f vx-smoke' EXIT
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:8080/healthz; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Save tested image
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        run: docker save vxinstagram:test -o /tmp/vxinstagram-image.tar
+      - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+        with:
+          name: tested-image
+          path: /tmp/vxinstagram-image.tar
+          retention-days: 1
+
+  publish:
+    needs: test
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: tested-image
+          path: /tmp
+      - name: Authenticate to GHCR
+        uses: docker/login-action@f4ef78c080cd8ba55a85445d5b36e214a81df20a
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish the exact tested image and record its digest
+        env:
+          IMAGE_TAG: ghcr.io/b4shful/vxinstagram:sha-${{ github.sha }}
+        run: |
+          docker load -i /tmp/vxinstagram-image.tar
+          docker tag vxinstagram:test "$IMAGE_TAG"
+          docker push "$IMAGE_TAG"
+          DEPLOY_REF=$(docker image inspect "$IMAGE_TAG" --format '{{index .RepoDigests 0}}')
+          echo "Deploy with VXINSTAGRAM_IMAGE=$DEPLOY_REF" >> "$GITHUB_STEP_SUMMARY"

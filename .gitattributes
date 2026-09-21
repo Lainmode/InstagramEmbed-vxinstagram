@@ -2,6 +2,10 @@
 # Set default behavior to automatically normalize line endings.
 ###############################################################################
 * text=auto
+*.py text eol=lf
+*.yml text eol=lf
+*.sh text eol=lf
+Dockerfile text eol=lf
 
 ###############################################################################
 # Set default behavior for command prompt diff.

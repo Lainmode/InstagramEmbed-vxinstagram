@@ -362,3 +362,14 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 /InstagramEmbedForDiscord/DAL/IGContext.cs
+
+# Private instance runtime and credentials
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+!.env.example
+cookies*.txt
+session-*
+secrets/

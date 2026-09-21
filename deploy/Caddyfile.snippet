@@ -1,0 +1,7 @@
+# Append to your existing Caddyfile (which defines log_common).
+ig.joel.zip {
+    import log_common vxinstagram
+    encode gzip
+    tls /etc/ssl/cloudflare/origin.crt /etc/ssl/cloudflare/origin.key
+    reverse_proxy vxinstagram:8080
+}

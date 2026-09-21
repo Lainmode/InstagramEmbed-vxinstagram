@@ -1,350 +1,143 @@
-﻿using InstagramEmbed.Application.Models;
+using System.Text.RegularExpressions;
+using System.Net;
+using InstagramEmbed.Application.Models;
 using InstagramEmbed.Application.Services;
-
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.Filters;
-using Microsoft.Extensions.Options;
-using System.Text;
-using System.Text.Json;
 
 namespace InstagramEmbed.Controllers;
 
-public sealed class HomeController : Controller
+public sealed class HomeController(PostCacheService posts, InstanceSettings instance) : Controller
 {
-    private readonly PostCacheService _posts;
-    private readonly DonateMessageService _donate;
-    private readonly HttpClient _http;
-    private readonly ILogger<HomeController> _logger;
-    private readonly DonationSettings _settings;
+    private static readonly Regex PostPath = new(
+        @"^(?:[A-Za-z0-9_.]+/)?(?<kind>p|reel|reels|tv)/(?<id>[A-Za-z0-9_-]{1,64})(?:/(?<order>[0-9]+))?/?$",
+        RegexOptions.CultureInvariant);
 
-
-
-
-    public HomeController(PostCacheService posts, DonateMessageService donate,
-        IHttpClientFactory factory, ILogger<HomeController> logger, IOptions<DonationSettings> options)
-    {
-        _posts = posts;
-        _donate = donate;
-        _http = factory.CreateClient("regular");
-        _logger = logger;
-        _settings = options.Value;
-
-    }
-
-    public override void OnActionExecuting(ActionExecutingContext context)
-    {
-        ViewBag.DonationCurrent = _settings.Current;
-        ViewBag.DonationTarget = _settings.Target;
-        base.OnActionExecuting(context);
-    }
-
-
-    [Route("/")]
+    [HttpGet("/")]
     public IActionResult HomePage() => View();
 
-    [Route("/setdonationvariables")]
-    [HttpGet]
-    public IActionResult SetDonationVariables([FromQuery] string pw, [FromQuery] int current, [FromQuery] int? target)
+    [HttpGet("/healthz")]
+    public IActionResult Health() => Ok(new { status = "ok" });
+
+    [HttpGet("/{**path}")]
+    public async Task<IActionResult> Index(string? path, [FromQuery(Name = "img_index")] int? imgIndex)
     {
-        if (pw != _settings.Password)
+        if (!ModelState.IsValid) return BadRequest("Invalid item number.");
+        if (path?.StartsWith("share/", StringComparison.OrdinalIgnoreCase) == true) return NotFound("Open the share link on Instagram and copy its post URL.");
+        var match = PostPath.Match(path ?? "");
+        if (!match.Success) return NotFound("Use a public /p/CODE/ or /reel/CODE/ link. Stories and share links are not supported.");
+        string kind = match.Groups["kind"].Value.Replace("reels", "reel");
+        string id = match.Groups["id"].Value;
+        int? order = null;
+        if (match.Groups["order"].Success)
         {
-            return BadRequest();
+            if (!int.TryParse(match.Groups["order"].Value, out int parsed) || parsed < 1) return BadRequest("Invalid item number.");
+            order = parsed - 1;
         }
-
-        _settings.Current = current;
-        _settings.Target = target ?? _settings.Target;
-
-        return RedirectToAction("HomePage");
+        else if (imgIndex.HasValue)
+        {
+            if (imgIndex < 1) return BadRequest("img_index starts at 1.");
+            order = imgIndex.Value - 1;
+        }
+        var post = await Fetch(kind, id);
+        if (post == null) return Unavailable();
+        if (order >= post.Media.Count) return NotFound("Item not found.");
+        Response.Headers.CacheControl = "no-store";
+        return View("Index", new EmbedPage(post, kind, id, order));
     }
 
-
-    [Route("{**path}")]
-    public async Task<IActionResult> Index(string path,
-        [FromQuery(Name = "img_index")] int? imgIndex)
+    [HttpGet("/media/{kind}/{id}/{order:int}")]
+    [HttpHead("/media/{kind}/{id}/{order:int}")]
+    public async Task<IActionResult> Media(string kind, string id, int order, bool thumbnail = false)
     {
-
-        _logger.LogInformation("HITs hit: ua={UA}",
-    Request.Headers.UserAgent.ToString());
-
-        try
-        {
-            if (string.IsNullOrWhiteSpace(path))
-                return BadRequest("Invalid Instagram path.");
-
-            var segments = path.Trim('/').Split('/');
-
-            int orderIndex = 0;
-            bool orderSpecified = false;
-
-            if (int.TryParse(segments.Last(), out int parsed))
-            {
-                orderIndex = Math.Max(0, parsed - 1);
-                segments = segments.Take(segments.Length - 1).ToArray();
-                orderSpecified = true;
-            }
-            else if (imgIndex.HasValue)
-            {
-                orderIndex = Math.Max(0, imgIndex.Value);
-                orderSpecified = true;
-            }
-
-            string id = segments.Last();
-            string type = segments.Length > 1 ? segments[^2] : segments[0];
-            string? username = segments.Length > 2 ? segments[0] : null;
-
-            ViewBag.Order = orderIndex;
-
-            if (username?.Equals("stories", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                username = type;                   // the actual username segment
-                type = $"stories/{username}";
-            }
-            else if (username?.Equals("share", StringComparison.OrdinalIgnoreCase) == true)
-            {
-                type = $"share/{type}";
-            }
-
-            string instagramUrl = $"https://instagram.com/{type}/{id}/";
-
-
-            bool isStoriesNoId = type.StartsWith("stories/", StringComparison.OrdinalIgnoreCase)
-                                 && id.Equals(username, StringComparison.OrdinalIgnoreCase);
-
-            string cacheId = isStoriesNoId
-                ? Uri.EscapeDataString(instagramUrl)
-                : id;
-
-            ViewBag.PostId = cacheId;
-            ViewBag.MaybeDonate = _donate.MaybeGetDonateMessage();
-
-            var post = await _posts.GetOrFetchAsync(cacheId, instagramUrl);
-            if (post == null) return NotFound();
-
-            ViewBag.Post = post;
-            return BuildResponse(post, instagramUrl, cacheId, orderIndex, orderSpecified);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Unhandled error processing path '{Path}'", path);
-            return View("Error");
-        }
+        if (!ModelState.IsValid) return BadRequest();
+        if (!PostCacheService.ValidPost(kind, id) || order < 0 || order >= 20) return NotFound();
+        var post = await Fetch(kind, id);
+        if (post == null) return Unavailable();
+        if (order >= post.Media.Count) return NotFound();
+        var media = post.Media[order];
+        var url = thumbnail ? media.ThumbnailUrl : media.Url;
+        if (!PostCacheService.ValidMediaUrl(url)) return NotFound();
+        // Re-resolve expired metadata instead of caching a redirect to a signed URL.
+        Response.Headers.CacheControl = "no-store";
+        return Redirect(url);
     }
 
+    // Preserve old links already cached by chat clients; old routes lacked post type.
+    [HttpGet("/offload/{id}")]
+    [HttpGet("/offload/{id}/{order:int}")]
+    [HttpGet("/offload/{id}/{order:int}.mp4")]
+    public Task<IActionResult> Offload(string id, int? order, bool thumbnail = false) =>
+        Media("p", id.EndsWith(".mp4") ? id[..^4] : id, order ?? 0, thumbnail);
 
+    [HttpGet("/oembed")]
+    public IActionResult OEmbed(string? username, string? desc) => Json(new {
+        version = "1.0", type = "video", title = "",
+        author_name = desc ?? username ?? instance.Name,
+        author_url = "https://www.instagram.com/" + Uri.EscapeDataString(username ?? ""),
+        provider_name = instance.Name, provider_url = instance.BaseUrl
+    });
 
-    [Route("/offload/{id}")]
-    [Route("/offload/{id}.mp4")]
-    [Route("/offload/{id}/{order}")]
-    [Route("/offload/{id}/{order}.mp4")]
-    public async Task<IActionResult> OffloadPost(string id, int? order,
-        [FromQuery] bool? thumbnail,
-        [FromQuery(Name = "order")] int? orderQuery)  // ?order=N from Activity endpoint
+    // Discord's existing Mastodon-style discovery path, with no user-supplied fetch URL.
+    [HttpGet("/users/{username}/statuses/{token}")]
+    [HttpGet("/api/v1/statuses/{token}")]
+    public Task<IActionResult> ActivityToken(string token)
     {
-        _logger.LogInformation("OffloadPost hit: id={Id} order={Order} ua={UA}",
-    id, order, Request.Headers.UserAgent.ToString());
-        int idx = Math.Max(0, order ?? orderQuery ?? 0);
-
-        var post = await _posts.GetOrFetchAsync(id, $"https://instagram.com/p/{id}/");
-        if (post == null) return NotFound();
-
-        var entry = post.Media.ElementAtOrDefault(idx) ?? post.Media.LastOrDefault();
-        if (entry == null) return NotFound();
-
-        string targetUrl = (thumbnail ?? false)
-            ? (entry.MediaType == "video"
-                ? post.DefaultThumbnailUrl ?? entry.ThumbnailUrl
-                : entry.ThumbnailUrl)
-            : entry.Url;
-
-        if (string.IsNullOrWhiteSpace(targetUrl)) return NotFound();
-
-        var ua = Request.Headers.UserAgent.ToString();
-        bool isTelegramBot = ua.Contains("TelegramBot", StringComparison.OrdinalIgnoreCase);
-
-        if (isTelegramBot && entry.MediaType == "video")
-        {
-            try
-            {
-                using var proxyRequest = new HttpRequestMessage(HttpMethod.Get, targetUrl);
-                proxyRequest.Headers.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
-
-                var proxyResponse = await _http.SendAsync(proxyRequest, HttpCompletionOption.ResponseHeadersRead);
-                if (proxyResponse.IsSuccessStatusCode)
-                {
-                    var stream = await proxyResponse.Content.ReadAsStreamAsync();
-                    var contentType = entry.MediaType == "video" ? "video/mp4" : "image/jpeg";
-
-                    HttpContext.Response.Headers["Accept-Ranges"] = "bytes";
-                    if (proxyResponse.Content.Headers.ContentLength.HasValue)
-                        HttpContext.Response.Headers["Content-Length"] = proxyResponse.Content.Headers.ContentLength.Value.ToString();
-
-                    HttpContext.Response.RegisterForDispose(proxyResponse);
-                    return File(stream, contentType, enableRangeProcessing: true);
-                }
-                proxyResponse.Dispose();
-                _logger.LogWarning("Telegram proxy got {Status} for {Url}", proxyResponse.StatusCode, targetUrl);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Telegram proxy failed for {Url}", targetUrl);
-            }
-        }
-
-        return Redirect(targetUrl);
+        var parts = token.Split('.');
+        return parts.Length == 2 ? Activity(parts[0], parts[1])
+            : Task.FromResult<IActionResult>(NotFound());
     }
 
-    [Route("/oembed")]
-    public IActionResult OEmbed(string? username, string? desc, string? likescomments, string donateMessage)
+    [HttpGet("/api/v1/statuses/{kind}/{id}")]
+    public async Task<IActionResult> Activity(string kind, string id, int order = 0)
     {
-        string providerName = donateMessage
-            ?? $"vxinstagram{(string.IsNullOrWhiteSpace(likescomments) ? "" : " " + likescomments)}";
-
-        return Json(new OEmbedModel
-        {
-            author_name = !string.IsNullOrEmpty(desc) ? desc : username ?? "vxinstagram",
-            author_url = "https://instagram.com/" + username,
-            provider_name = providerName,
-            provider_url = "https://vxinstagram.com",
-            title = string.Empty,
-            type = "video",
-            version = "1.0"
+        if (!ModelState.IsValid) return BadRequest();
+        if (!PostCacheService.ValidPost(kind, id) || order < 0 || order >= 20) return NotFound();
+        var post = await Fetch(kind, id);
+        if (post == null) return Unavailable();
+        if (order >= post.Media.Count) return NotFound();
+        var url = $"https://www.instagram.com/{kind}/{id}/";
+        var username = instance.ShowDetails ? post.AuthorUsername : "instagram";
+        var authorUrl = "https://www.instagram.com/" + Uri.EscapeDataString(username);
+        var media = post.Media.Select((m, i) => new { m, i }).Skip(order)
+            .Concat(post.Media.Select((m, i) => new { m, i }).Take(order)).Take(4)
+            .Select(item => new {
+                id = $"{id}-{item.i}", type = item.m.MediaType,
+                url = $"{instance.BaseUrl}/media/{kind}/{id}/{item.i}",
+                preview_url = $"{instance.BaseUrl}/media/{kind}/{id}/{item.i}?thumbnail=true",
+                description = instance.ShowDetails ? post.Caption : null,
+                meta = item.m.Width > 0 && item.m.Height > 0 ? new {
+                    width = item.m.Width, height = item.m.Height,
+                    aspect = (double)item.m.Width / item.m.Height,
+                    size = $"{item.m.Width}x{item.m.Height}"
+                } : null
+            });
+        Response.Headers.CacheControl = "no-store";
+        return Json(new {
+            id, url, uri = url, created_at = DateTime.UnixEpoch,
+            content = instance.ShowDetails ? $"<p>{WebUtility.HtmlEncode(post.Caption)}</p>" : "",
+            visibility = "public", sensitive = false, spoiler_text = "",
+            application = new { name = instance.Name, website = instance.BaseUrl },
+            media_attachments = media,
+            account = new { id = username, username, acct = username,
+                display_name = username, url = authorUrl, uri = authorUrl,
+                avatar = $"{instance.BaseUrl}/icon.svg", avatar_static = $"{instance.BaseUrl}/icon.svg",
+                created_at = DateTime.UnixEpoch, locked = false, bot = false,
+                followers_count = 0, following_count = 0, statuses_count = 0,
+                note = "", fields = Array.Empty<object>(), emojis = Array.Empty<object>() },
+            mentions = Array.Empty<object>(), tags = Array.Empty<object>(), emojis = Array.Empty<object>()
         });
     }
 
-
-
-    [Route("/api/v1/statuses/{contextBase64}")]
-    [Route("/users/{username}/statuses/{contextBase64}")]
-    public async Task<IActionResult> Activity(string contextBase64)
+    private async Task<CachedPost?> Fetch(string kind, string id)
     {
-        var bytes = Base64Url.Decode(contextBase64);
-        var payload = Encoding.UTF8.GetString(bytes);
-        var parts = payload.Split('&');
-
-        string cacheId = parts.Length > 0 ? parts[0] : string.Empty;
-        int.TryParse(parts.Length > 1 ? parts[1] : null, out int order);
-        string igUrl = parts.Length > 2
-            ? string.Join("&", parts.Skip(2))   // re-join in case igUrl had & in it
-            : $"https://instagram.com/p/{cacheId}/";
-
-        var post = await _posts.GetOrFetchAsync(cacheId, igUrl);
-        if (post == null) return NotFound();
-
-        string host = $"https://{Request.Host}";
-
-        var orderedMedia = post.Media
-            .Skip(order)
-            .Concat(post.Media.Take(order))
-            .Take(4)
-            .Select((m, i) =>
-            {
-                int globalIdx = (order + i) % post.Media.Count;
-
-                string imageUrl = m.MediaType == "video"
-                    ? (post.DefaultThumbnailUrl ?? m.ThumbnailUrl)
-                    : m.Url;
-
-                string thumbUrl = m.ThumbnailUrl ?? imageUrl;
-
-                return new MediaAttachment
-                {
-                    id = cacheId,
-                    type = m.MediaType,   // preserve real type, matches old code
-                    url = $"{host}/offload/{cacheId}?order={globalIdx}",
-                    preview_url = $"{host}/offload/{cacheId}?order={globalIdx}&thumbnail=true",
-                    meta = new MediaAttachmentMeta
-                    {
-                        width = post.Width,
-                        height = post.Height,
-                        aspect = post.AspectRatio,
-                        size = post.Size
-                    }
-                };
-            })
-            .ToList();
-
-        var model = new ActivityPubModel
-        {
-            id = contextBase64,
-            url = igUrl,
-            uri = igUrl,
-            created_at = DateTime.UtcNow,
-            content = $"<p>{post.Caption}</p><b>❤️ {post.Likes}&nbsp;&nbsp;&nbsp;💬 {post.Comments}</b>",
-            language = "en",
-            visibility = "public",
-            media_attachments = orderedMedia,
-            account = new ActivityAccount
-            {
-                id = post.AuthorUsername,
-                display_name = post.AuthorName ?? string.Empty,
-                username = post.AuthorUsername,
-                acct = post.AuthorUsername,
-                url = "https://instagram.com/" + post.AuthorUsername,
-                uri = "https://instagram.com/" + post.AuthorUsername,
-                avatar = post.AvatarUrl ?? "https://www.vxinstagram.com/favicon.png",
-                avatar_static = post.AvatarUrl ?? "https://www.vxinstagram.com/favicon.png",
-                created_at = DateTime.UtcNow
-            }
-        };
-
-        return Content(
-            JsonSerializer.Serialize(model, new JsonSerializerOptions
-            {
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-                WriteIndented = true
-            }),
-            "application/json");
+        try { return await posts.GetOrFetchAsync(kind, id, HttpContext.RequestAborted); }
+        catch (OperationCanceledException) { return null; }
     }
 
-
-
-    private IActionResult BuildResponse(CachedPost post, string igUrl, string cacheId,
-        int orderIndex, bool orderSpecified)
+    private IActionResult Unavailable()
     {
-        if (post.Media.Count == 0) return NotFound();
-
-        if (post.Media.Count == 1 || orderSpecified)
-        {
-            var entry = post.Media.ElementAtOrDefault(orderIndex) ?? post.Media.First();
-            return RenderSingle(entry, igUrl, cacheId, post, orderIndex);
-        }
-
-        return RenderMultiple(post.Media, igUrl, cacheId, post, orderIndex);
-    }
-
-    private IActionResult RenderSingle(CachedMedia media, string igUrl, string cacheId,
-        CachedPost post, int orderIndex)
-    {
-        string contentUrl = $"https://{Request.Host}/offload/{Uri.EscapeDataString(cacheId)}/{orderIndex}";
-        bool isPhoto = media.MediaType == "image";
-
-        ViewBag.IsPhoto = isPhoto;
-        ViewBag.Files = new List<CachedMedia> { media };
-        return View("Index", new[] { contentUrl, media.ThumbnailUrl, igUrl });
-    }
-
-    private IActionResult RenderMultiple(List<CachedMedia> media, string igUrl, string cacheId,
-        CachedPost post, int orderIndex)
-    {
-        // og:video / twitter:player points at the item the user requested
-        string contentUrl = $"https://{Request.Host}/offload/{Uri.EscapeDataString(cacheId)}/{orderIndex}";
-
-        ViewBag.IsPhoto = true;
-        ViewBag.Files = media.Take(16).ToList();
-        return View("Index", new[] { contentUrl, (string?)null, igUrl });
-    }
-}
-
-
-public static class Base64Url
-{
-    public static string Encode(byte[] bytes)
-        => Convert.ToBase64String(bytes).Replace('+', '-').Replace('/', '_').TrimEnd('=');
-
-    public static byte[] Decode(string s)
-    {
-        s = s.Replace('-', '+').Replace('_', '/');
-        s += (s.Length % 4) switch { 2 => "==", 3 => "=", _ => "" };
-        return Convert.FromBase64String(s);
+        Response.Headers.CacheControl = "no-store";
+        Response.Headers.RetryAfter = "30";
+        return StatusCode(503, "Instagram media is temporarily unavailable, requires login, or has no supported direct URL. Open the original Instagram link.");
     }
 }

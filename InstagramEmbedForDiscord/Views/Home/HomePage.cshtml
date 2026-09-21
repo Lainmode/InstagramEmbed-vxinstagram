@@ -1,98 +1,14 @@
-﻿@{
-    Layout = null;
-
-}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>vxinstagram – Instagram embeds for Discord &amp; Telegram</title>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <style>
-        body {
-            background: #0d0d0d;
-            color: #e8e8e8;
-        }
-
-        .brand {
-            color: #eb4034;
-            font-weight: 700;
-        }
-
-        .code {
-            background: #1a1a1a;
-            border-radius: .4rem;
-            padding: .1rem .4rem;
-            font-family: monospace;
-            font-size: .9em;
-        }
-    </style>
-</head>
-<body>
-
-    <div class="d-flex border-bottom border-secondary p-4 align-items-center justify-content-between shadow">
-        <div>
-            <span class="brand fs-4">vxinstagram</span>
-            <div class="text-secondary small">
-                by <a class="text-secondary" href="https://github.com/Lainmode/InstagramEmbedForDiscord" target="_blank">Lainmode</a>
-            </div>
-        </div>
-        <a target="_blank" href="https://www.buymeacoffee.com/alsauce">
-            <img style="height:2.5rem"
-                 src="https://img.buymeacoffee.com/button-api/?text=Buy+me+a+coffee&emoji=☕&slug=alsauce&button_colour=954b89&font_colour=ffffff&font_family=Cookie&outline_colour=ffffff&coffee_colour=FFDD00" />
-        </a>
-    </div>
-
-    <div class="container py-5 px-3 px-md-5" style="max-width:860px">
-
-
-
-        <partial name="~/Views/Home/_Partial/DonationMessage.cshtml"></partial>
-
-
-        <h5 class="mb-3">Supports</h5>
-        <div class="card border-0 shadow mb-4" style="background:#111; ">
-            <div class="card-body border-start border-success border-5 rounded-3">
-                <div>✅ Posts &nbsp;<span class="code">instagram.com/p/…</span></div>
-                <div>✅ Reels &nbsp;<span class="code">instagram.com/reel/…</span></div>
-                <div>✅ Stories &nbsp;<span class="code">instagram.com/stories/username/…</span></div>
-                <div>✅ Albums (multi-image / multi-video carousels)</div>
-                <div>✅ User Posts &nbsp;<span class="code">instagram.com/username/p/…</span></div>
-                <div>✅ Share links &nbsp;<span class="code">instagram.com/share/…</span></div>
-                <div>✅ Single album item via index <span class="code">/p/HASH/2</span></div>
-            </div>
-        </div>
-
-        <h5 class="mb-3">Basic Usage</h5>
-        <div class="card border-0 shadow mb-4" style="background:#111;">
-            <div class="card-body border-start border-primary border-5 rounded-3 d-flex flex-column gap-4">
-                <div class="bg-black rounded-2 p-3">
-                    <h6>Embed a post</h6>
-                    <hr class="border-secondary" />
-                    <div><span class="code">instagram.com/reel/HASH/</span></div>
-                    <div class="text-info fs-4">↓</div>
-                    <div><span class="code"><strong class="text-info">vx</strong>instagram.com/reel/HASH/</span></div>
-                    <p class="text-secondary small mt-2 mb-0">
-                        Replace <strong>www.instagram.com</strong> with <strong class="text-info">vxinstagram.com</strong>.
-                        The embed works on Discord, Telegram, and any Open Graph-aware platform.
-                    </p>
-                </div>
-
-            </div>
-        </div>
-
-        <h5 class="mb-3">Media Index (Albums)</h5>
-        <div class="card border-0 shadow mb-4" style="background:#111;">
-            <div class="card-body border-start border-primary border-5 rounded-3">
-                <div class="bg-black rounded-2 p-3">
-                    <div><span class="code">vxinstagram.com/p/HASH/</span> → whole album</div>
-                    <div class="text-info fs-4">↓</div>
-                    <div><span class="code">vxinstagram.com/p/HASH/<strong class="text-info">2</strong>/</span> → second item only</div>
-                </div>
-            </div>
-        </div>
-
-    </div>
-</body>
-</html>
+@using InstagramEmbed.Application.Services
+@inject InstanceSettings Instance
+@{ ViewData["Title"] = Instance.Name; }
+<main class="container py-5">
+    <h1>@Instance.Name</h1>
+    <p>Share a public Instagram post or reel with a preview in chat.</p>
+    <p>Replace <code>www.instagram.com</code> with <code>@(new Uri(Instance.BaseUrl).Authority)</code>.</p>
+    <p>For one album item, append its number: <code>@Instance.BaseUrl/p/CODE/2/</code>.</p>
+    <p>Stories, private posts and short share links are not supported. Open a share link in Instagram first, then copy the post or reel URL.</p>
+    <footer class="mt-5 text-secondary">
+        Personal instance based on <a href="https://github.com/Lainmode/InstagramEmbed-vxinstagram">InstagramEmbed by Lainmode</a>.
+        <a href="https://github.com/b4shful/vxinstagram">Fork source and license</a>.
+    </footer>
+</main>

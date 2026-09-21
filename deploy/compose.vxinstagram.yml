@@ -1,0 +1,32 @@
+# Merge with the existing InvenTree Compose file. No new host port.
+services:
+  vxinstagram:
+    image: ${VXINSTAGRAM_IMAGE:?Set VXINSTAGRAM_IMAGE to a GHCR image digest}
+    restart: unless-stopped
+    init: true
+    expose:
+      - "8080"
+    environment:
+      Instance__Name: ${VXINSTAGRAM_NAME:-Instagram embeds}
+      Instance__PublicUrl: ${VXINSTAGRAM_PUBLIC_URL:-https://ig.joel.zip}
+      Instance__ShowDetails: "true"
+      AllowedHosts: ${VXINSTAGRAM_ALLOWED_HOSTS:-ig.joel.zip;localhost;127.0.0.1;vxinstagram}
+      Extractor__Provider: ${VXINSTAGRAM_PROVIDER:-auto}
+      Extractor__CacheSeconds: "300"
+      Extractor__TimeoutSeconds: "40"
+      Extractor__Concurrency: "2"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 768m
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

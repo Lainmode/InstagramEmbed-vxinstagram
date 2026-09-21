@@ -1,48 +1,31 @@
 using InstagramEmbed.Application.Services;
-using Microsoft.Extensions.Caching.Memory;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
-
-builder.Services.AddControllersWithViews()
-    .AddJsonOptions(o =>
-        o.JsonSerializerOptions.Encoder =
-            System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping);
-
-builder.Services.AddMemoryCache(o =>
-{
-
-    o.SizeLimit = 5_000;
-});
-
-builder.Services.AddHttpClient("regular", c =>
-{
-    c.DefaultRequestHeaders.UserAgent.ParseAdd(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36");
-    c.Timeout = TimeSpan.FromMinutes(5);
-});
-
-builder.Services.AddHttpClient("snapsave", c =>
-{
-    c.Timeout = TimeSpan.FromSeconds(20);
-});
-
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+// This stateless app has no login cookies or persistent protected data.
+builder.Services.AddDataProtection().UseEphemeralDataProtectionProvider();
+builder.Services.Configure<Microsoft.AspNetCore.DataProtection.KeyManagement.KeyManagementOptions>(o =>
+    o.XmlRepository = new MemoryKeyRepository());
+builder.Services.AddControllersWithViews();
+builder.Services.AddMemoryCache(o => o.SizeLimit = 32 * 1024 * 1024);
+builder.Services.AddSingleton<InstanceSettings>();
 builder.Services.AddSingleton<PostCacheService>();
-builder.Services.AddSingleton<DonateMessageService>();
-
-builder.Services.AddHostedService<SnapSaveProcessService>();
-
-builder.Services.Configure<DonationSettings>(options =>
-{
-    options.Password = builder.Configuration.GetValue("APP_PASSWORD", "password") ?? "password";
-    options.Current = builder.Configuration.GetValue("DONATION_CURRENT", 0);
-    options.Target = builder.Configuration.GetValue("DONATION_TARGET", 100);
+builder.Services.AddRateLimiter(options => {
+    options.RejectionStatusCode = 429;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(_ =>
+        RateLimitPartition.GetConcurrencyLimiter("instance", _ => new ConcurrencyLimiterOptions {
+            PermitLimit = 32, QueueLimit = 0
+        }));
 });
-
-
 var app = builder.Build();
-
+// Validate settings before accepting requests.
+app.Services.GetRequiredService<InstanceSettings>();
+app.Services.GetRequiredService<PostCacheService>();
 app.UseStaticFiles();
 app.UseRouting();
+app.UseRateLimiter();
 app.MapControllers();
-
 app.Run();
